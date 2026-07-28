@@ -230,6 +230,116 @@ export type RunActionResponse = {
   message_id?: string;
 };
 
+export type AgentRunLimits = {
+  max_steps?: number;
+  max_tool_calls?: number;
+  request_timeout_seconds?: number;
+  per_step_timeout_seconds?: number;
+  token_budget?: number;
+  cost_budget_usd?: number;
+  max_retries?: number;
+};
+
+export type CreateAgentRunPayload = {
+  owner_request: string;
+  allowed_tools?: string[];
+  limits?: AgentRunLimits;
+  provider?: string | null;
+  model?: string | null;
+};
+
+export type AgentEvent = {
+  id: string;
+  run_id: string;
+  event_type: string;
+  sequence_number: number;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AgentToolCall = {
+  id: string;
+  run_id: string;
+  tool_id: string;
+  tool_name: string;
+  risk_class: string;
+  status: string;
+  redacted_arguments: Record<string, unknown>;
+  redacted_result: Record<string, unknown> | null;
+  arguments_hash: string | null;
+  idempotency_key: string | null;
+  policy_decision: Record<string, unknown>;
+  timeout_seconds: number | null;
+  output_size_limit: number | null;
+  retry_count: number;
+  latency_ms: number | null;
+  error_code: string | null;
+  trace_id: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+export type AgentApproval = {
+  id: string;
+  run_id: string;
+  tool_call_id: string | null;
+  tool_id: string | null;
+  status: string;
+  policy_version: string;
+  arguments_hash: string | null;
+  risk_class: string | null;
+  expires_at: string;
+  decided_at: string | null;
+  decided_by_user_id: string | null;
+  used_at: string | null;
+  expired_at: string | null;
+  cancelled_at: string | null;
+  denial_reason: string | null;
+  approval_metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentRunSummary = {
+  id: string;
+  run_kind: string;
+  state: string;
+  status_reason: string | null;
+  owner_request: string | null;
+  provider: string | null;
+  model: string | null;
+  allowed_tools: string[];
+  limits: Record<string, unknown>;
+  usage: Record<string, unknown>;
+  sanitized_input: Record<string, unknown>;
+  sanitized_output: Record<string, unknown> | null;
+  retry_count: number;
+  latency_ms: number | null;
+  trace_id: string | null;
+  trace_metadata: Record<string, unknown>;
+  last_error: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  cancel_requested_at: string | null;
+};
+
+export type AgentRunDetail = AgentRunSummary & {
+  events: AgentEvent[];
+  tool_calls: AgentToolCall[];
+  approvals: AgentApproval[];
+};
+
+export type AgentRunListResponse = {
+  items: AgentRunSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type ModelCapability = {
   provider: string;
   model: string;
@@ -448,6 +558,95 @@ export function createLoomiClient(apiBase: string) {
         {
           method: "POST",
           headers: { "x-csrf-token": csrfToken },
+        },
+      );
+    },
+    createAgentRun(
+      csrfToken: string,
+      payload: CreateAgentRunPayload,
+      idempotencyKey = crypto.randomUUID(),
+    ) {
+      return request<AgentRunDetail>(apiBase, "/api/v1/agent-runs", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+          "idempotency-key": idempotencyKey,
+        },
+        body: JSON.stringify(payload),
+      });
+    },
+    listAgentRuns(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<AgentRunListResponse>(
+        apiBase,
+        `/api/v1/agent-runs${query ? `?${query}` : ""}`,
+      );
+    },
+    getAgentRun(runId: string) {
+      return request<AgentRunDetail>(apiBase, `/api/v1/agent-runs/${runId}`);
+    },
+    getAgentRunEvents(runId: string) {
+      return request<AgentEvent[]>(
+        apiBase,
+        `/api/v1/agent-runs/${runId}/events`,
+      );
+    },
+    cancelAgentRun(runId: string, csrfToken: string) {
+      return request<AgentRunDetail>(
+        apiBase,
+        `/api/v1/agent-runs/${runId}/cancel`,
+        {
+          method: "POST",
+          headers: { "x-csrf-token": csrfToken },
+        },
+      );
+    },
+    retryAgentRun(runId: string, csrfToken: string) {
+      return request<AgentRunDetail>(
+        apiBase,
+        `/api/v1/agent-runs/${runId}/retry`,
+        {
+          method: "POST",
+          headers: { "x-csrf-token": csrfToken },
+        },
+      );
+    },
+    approveAgentToolCall(
+      runId: string,
+      approvalId: string,
+      csrfToken: string,
+      payload: { arguments?: Record<string, unknown> | null } = {},
+    ) {
+      return request<AgentRunDetail>(
+        apiBase,
+        `/api/v1/agent-runs/${runId}/approvals/${approvalId}/approve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    denyAgentToolCall(
+      runId: string,
+      approvalId: string,
+      csrfToken: string,
+      reason?: string,
+    ) {
+      return request<AgentRunDetail>(
+        apiBase,
+        `/api/v1/agent-runs/${runId}/approvals/${approvalId}/deny`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify({ reason }),
         },
       );
     },

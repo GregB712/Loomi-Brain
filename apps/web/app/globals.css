@@ -602,6 +602,17 @@ mark {
   white-space: pre-wrap;
 }
 
+.trace-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--blue);
+  font-weight: 720;
+}
+
 .conversation-list {
   display: grid;
   gap: 8px;
@@ -936,6 +947,229 @@ button:disabled {
   line-height: 1.35;
 }
 
+.runs-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(300px, 420px) minmax(
+      420px,
+      1fr
+    );
+  gap: 16px;
+  align-items: start;
+}
+
+.run-composer,
+.run-list-panel,
+.run-inspector {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.run-composer,
+.run-inspector {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.run-composer label,
+.limit-grid label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.run-composer textarea {
+  min-height: 140px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  resize: vertical;
+}
+
+.limit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.limit-grid input,
+.run-list-panel select {
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0 10px;
+}
+
+.tool-allowlist {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.tool-allowlist legend {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.run-table {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+
+.run-table button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 72px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.run-table button[aria-pressed="true"] {
+  background: var(--surface-subtle);
+}
+
+.run-table strong,
+.run-table small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.run-table small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.run-actions,
+.approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.run-actions button,
+.approval-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.run-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.run-stat-grid div {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.run-stat-grid span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.run-stat-grid strong {
+  overflow-wrap: anywhere;
+  font-size: 0.92rem;
+}
+
+.approval-stack,
+.tool-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.approval-card,
+.tool-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.tool-json-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.run-timeline {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-timeline li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.run-timeline li > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.run-timeline div {
+  display: grid;
+  gap: 5px;
+  border-left: 2px solid var(--line);
+  padding: 0 0 12px 12px;
+}
+
+.run-timeline small {
+  color: var(--muted);
+}
+
+.run-timeline pre {
+  max-height: 210px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  padding: 10px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -967,7 +1201,8 @@ button:disabled {
   }
 
   .search-layout,
-  .chat-grid {
+  .chat-grid,
+  .runs-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1014,7 +1249,9 @@ button:disabled {
 
   .result-card__head,
   .composer-actions,
-  .feedback-row {
+  .feedback-row,
+  .run-stat-grid,
+  .tool-json-grid {
     display: grid;
   }
 

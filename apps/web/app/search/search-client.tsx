@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Search,
   SlidersHorizontal,
+  Workflow,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -118,6 +119,12 @@ export function SearchClient() {
               <Link className="nav-link" href="/chat">
                 <MessageSquare size={18} aria-hidden="true" />
                 <span>Chat</span>
+              </Link>
+            </li>
+            <li>
+              <Link className="nav-link" href="/runs">
+                <Workflow size={18} aria-hidden="true" />
+                <span>Runs</span>
               </Link>
             </li>
           </ul>

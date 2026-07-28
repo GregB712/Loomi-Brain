@@ -53,6 +53,23 @@ Residual Phase 3 risks:
 - Rate limiting remains a later hardening item.
 - Real provider streaming is normalized through adapters but CI covers mock/provider-error paths rather than live paid providers.
 
+Phase 4 implements the first controlled tool surface. Owner requests, retrieved
+context, model/tool metadata, tool arguments, and tool results remain untrusted.
+Implemented controls include per-run tool allowlists, server-side tool argument
+validation, exact canonical argument hashes, approval-required local mutation tooling,
+single-use owner approval records, denial and argument-change invalidation, forbidden
+tool request blocking, safe calculator AST evaluation, redacted/truncated tool results,
+bounded steps/tool calls/token/cost metadata, persisted cancellation, and audit events
+for runtime and approval decisions.
+
+Residual Phase 4 risks:
+
+- Planning is deterministic and narrow; future model-driven tool proposals need adapter
+  contract tests before live provider use.
+- `notes.create_draft` stages output in the tool-call result only until a durable notes
+  feature exists.
+- Recovery after restart is event/history based; there is no background resume worker yet.
+
 ## Trust Boundaries
 
 ```mermaid
@@ -265,6 +282,12 @@ Phase 2 security tests cover unauthenticated upload, missing CSRF, path traversa
 
 Phase 3 security tests cover authenticated search/chat/provider/feedback routes, prompt-injection evidence treated as untrusted, no-answer behavior, fabricated citation rejection, source chunk lookup through owner scope, provider health without secret exposure, and cancellation state updates.
 
+Phase 4 security tests cover legal and illegal runtime transitions, read-only tool
+execution, approval-required tool pause/resume, denial preventing execution,
+argument-change invalidation, max-step and max-tool limits, cancellation,
+idempotent run creation, prompt-injected forbidden tool requests, and secret-like
+inline redaction in persisted run history.
+
 ### Upload And Parsing
 
 - Content-based MIME detection.
@@ -291,6 +314,17 @@ Phase 3 security tests cover authenticated search/chat/provider/feedback routes,
 - Explicit approval for external mutation, credential-sensitive, and destructive calls.
 - Result sanitization and truncation.
 - No arbitrary shell command strings from browser.
+
+### Agent Runtime
+
+- Internal runtime protocol and code-owned state machine.
+- Per-run tool allowlist.
+- Server-side tool schema validation.
+- Risk classification and approval policy independent of model text.
+- Canonical argument hashes for approval binding.
+- Single-use approvals with expiration.
+- Redaction and truncation before persistence/UI.
+- Audit events for policy decisions and tool execution.
 
 ### Skills
 

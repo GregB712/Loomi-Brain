@@ -184,6 +184,8 @@ Phase 3 implementation notes:
 
 ## Phase 4: Agent Runtime
 
+Status: implemented.
+
 Goal: agent runs are durable, bounded, inspectable, and enforce approval policy.
 
 Work items:
@@ -202,6 +204,23 @@ Acceptance criteria:
 - Rejected approval moves run to a safe state.
 - Max-step enforcement stops runaway loops.
 - Run inspector explains what happened.
+
+Phase 4 implementation notes:
+
+- The runtime is a custom minimal explicit state machine behind an internal
+  `AgentRuntime` protocol. ADR 0011 records the framework comparison and decision.
+- Agent runs persist sanitized owner requests, allowed tools, limits, usage, latency,
+  trace metadata, terminal errors, and append-only state events.
+- Safe tools include `knowledge.search`, `knowledge.get_document_metadata`,
+  `knowledge.get_source_excerpt`, `calculator`, and approval-required
+  `notes.create_draft`.
+- Approval records bind owner, run, tool call, exact tool ID, canonical argument hash,
+  risk class, expiry, and single-use state.
+- Denied, expired, or argument-changed approvals do not execute the tool.
+- `/api/v1/agent-runs` exposes run creation, list/filter, detail, event history, SSE
+  replay, cancel, retry, approve, and deny.
+- `/runs` implements the Agent Run Inspector with state timeline, tool cards, approval
+  cards, usage, latency, errors, cancel/retry, and accessible approve/deny controls.
 
 ## Phase 5: Observability And Evaluation
 

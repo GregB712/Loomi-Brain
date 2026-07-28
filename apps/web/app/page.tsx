@@ -22,7 +22,7 @@ const navigation = [
   { label: "Chat", icon: MessageSquare, href: "/chat" },
   { label: "Knowledge", icon: Library, href: "/knowledge" },
   { label: "Search", icon: Search, href: "/search" },
-  { label: "Runs", icon: Workflow, href: "#" },
+  { label: "Runs", icon: Workflow, href: "/runs" },
   { label: "Skills", icon: Sparkles, href: "#" },
   { label: "MCP", icon: Plug, href: "#" },
   { label: "Observability", icon: Activity, href: "#" },
@@ -129,8 +129,8 @@ export default function DashboardPage() {
             aria-label="Environment status"
           >
             <p className="panel-label">Phase</p>
-            <p className="panel-value">Search + Chat</p>
-            <StatusPill tone="good">Phase 3</StatusPill>
+            <p className="panel-value">Agent Runtime</p>
+            <StatusPill tone="good">Phase 4</StatusPill>
           </section>
         </header>
 

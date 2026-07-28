@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from loomi_api import __version__
 from loomi_api.api import (
+    agent_runs,
     auth,
     conversations,
     documents,
@@ -75,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ingestion_jobs.router)
     app.include_router(search.router)
     app.include_router(conversations.router)
+    app.include_router(agent_runs.router)
     app.include_router(providers.router)
     app.include_router(feedback.router)
 

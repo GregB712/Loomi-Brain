@@ -389,7 +389,7 @@ async def stream_run_events(
 
 async def cancel_run(session: AsyncSession, owner_user_id: str, run_id: str) -> AgentRun:
     run = await _load_run(session, run_id, owner_user_id)
-    if run.state not in {"completed", "failed"}:
+    if run.state not in {"completed", "complete", "cancelled", "failed"}:
         run.state = "cancelled"
         await _record_event(session, run.id, "cancelled", {"run_id": run.id})
         await session.commit()

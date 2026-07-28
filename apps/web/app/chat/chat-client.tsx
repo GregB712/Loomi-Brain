@@ -26,6 +26,7 @@ import {
   Square,
   ThumbsDown,
   ThumbsUp,
+  Workflow,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
@@ -289,6 +290,12 @@ export function ChatClient() {
                 <span>Chat</span>
               </Link>
             </li>
+            <li>
+              <Link className="nav-link" href="/runs">
+                <Workflow size={18} aria-hidden="true" />
+                <span>Runs</span>
+              </Link>
+            </li>
           </ul>
         </nav>
         {csrfToken ? (
@@ -517,6 +524,11 @@ export function ChatClient() {
                 <pre className="debug-block">
                   {JSON.stringify({ usage, trace }, null, 2)}
                 </pre>
+                {currentRunId ? (
+                  <Link className="trace-link" href="/runs">
+                    Open run inspector
+                  </Link>
+                ) : null}
               </section>
 
               <section>

@@ -27,6 +27,7 @@ import {
   Tags,
   Trash2,
   Upload,
+  Workflow,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -308,6 +309,12 @@ export function KnowledgeClient() {
               <Link className="nav-link" href="/chat">
                 <MessageSquare size={18} strokeWidth={1.8} aria-hidden="true" />
                 <span>Chat</span>
+              </Link>
+            </li>
+            <li>
+              <Link className="nav-link" href="/runs">
+                <Workflow size={18} strokeWidth={1.8} aria-hidden="true" />
+                <span>Runs</span>
               </Link>
             </li>
           </ul>

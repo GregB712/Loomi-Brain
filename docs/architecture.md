@@ -40,6 +40,18 @@ Phase 3 adds hybrid search and cited chat:
 - SSE streamed response execution with cancellation, retry, source preview, provider health, and feedback endpoints.
 - Search and chat web routes using sanitized Markdown rendering and citation/source panels.
 
+Phase 4 adds the controlled agent runtime:
+
+- Internal `AgentRuntime` and `Tool` protocols with a custom explicit state machine.
+- Persisted agent runs, append-only events, tool calls, approvals, policy decisions,
+  usage, latency, sanitized input/output, retries, cancellation, and audit metadata.
+- First-party tools for knowledge search, document metadata, source excerpts, safe
+  calculation, and approval-required draft-note staging.
+- Owner approval records bound to exact tool ID, run ID, risk class, expiration, and
+  canonical argument hash.
+- Agent Run Inspector web route at `/runs` with timeline, tools, approvals, usage,
+  errors, cancel, retry, approve, and deny controls.
+
 ## Architecture Overview
 
 Loomi-Brain uses a monorepo with separate web, API, worker, shared UI, shared contracts, infrastructure, tests, scripts, and documentation modules.
@@ -113,8 +125,9 @@ This baseline was checked on 2026-07-28 against primary package sources and loca
 
 ### AI, Observability, And Integrations
 
-- PydanticAI 2.19.0 as default agent runtime for typed structured output and direct Python model.
-- LangGraph remains a documented alternative for more complex durable graphs if the initial explicit state machine becomes too constrained.
+- Phase 4 uses a custom minimal explicit runtime behind an internal `AgentRuntime`
+  protocol. PydanticAI 2.19.0 and LangGraph 1.2.9 were reviewed and remain future
+  adapter candidates.
 - LiteLLM 1.93.0 behind an internal adapter; ignore pre-release versions.
 - Langfuse 4.14.1 for LLM observability.
 - OpenTelemetry SDK 1.44.0 for traces, metrics, and logs.
@@ -164,8 +177,8 @@ All API routes are versioned under `/api/v1`. The same-repo frontend is the firs
 - Ingestion jobs: list, detail, retry, cancel, event stream.
 - Search: query with lexical, semantic, hybrid modes and filters.
 - Conversations: list, create, detail, messages, delete/export.
-- Agent execution: run creation, SSE stream, cancel, retry, run detail.
-- Approvals: pending approvals, approve, reject, expire.
+- Agent execution: run creation, event stream, list/filter, cancel, retry, run detail.
+- Approvals: pending approvals, approve, deny, expire by policy, cancel by run cancellation.
 - Providers: configurations, model capabilities, health checks.
 - Skills: drafts, publish, archive, disable, versions, tests, dry-run, import/export.
 - MCP: servers, capabilities, policies, health checks, audit log.
@@ -218,6 +231,12 @@ Phase 1 enables the pgvector extension on PostgreSQL but stores embedding vector
 Phase 2 persists deterministic embedding vectors as JSON with dimension/model/version/checksum metadata. This keeps local tests deterministic and avoids mixing vector dimensions before retrieval evaluation defines the pgvector schema. The migration adds ingestion progress, timing, cancellation, stage logs, chunk stable IDs, text hashes, chunker version, embedding version, vector checksum, parser metadata, and collection uniqueness indexes.
 
 Phase 3 keeps JSON vectors for deterministic tests and mirrors them into pgvector on PostgreSQL. Lexical search uses a GIN index over `to_tsvector('english', chunks.text)`. Hybrid rank fusion uses reciprocal rank fusion before duplicate suppression and token-budget context assembly.
+
+Phase 4 completes the runtime fields on `agent_runs`, `agent_events`, `tool_calls`,
+`approvals`, and `audit_events`. The runtime stores sanitized owner requests, allowed
+tools, limits, policy decisions, canonical argument hashes, redacted tool arguments and
+results, approval state, retry counts, usage/cost estimates, latency, trace IDs, and
+terminal errors.
 
 ## Ingestion Pipeline
 

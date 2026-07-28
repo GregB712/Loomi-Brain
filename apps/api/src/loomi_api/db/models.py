@@ -245,6 +245,25 @@ class AgentRun(IdMixin, TimestampMixin, Base):
     idempotency_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
     trace_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
     budget: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    run_kind: Mapped[str] = mapped_column(String(40), default="chat")
+    status_reason: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    owner_request: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    allowed_tools: Mapped[list[str]] = mapped_column(JSON, default=list)
+    limits: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    usage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    sanitized_input: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    sanitized_output: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_error: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    trace_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
 class AgentEvent(IdMixin, TimestampMixin, Base):
@@ -264,10 +283,24 @@ class ToolCall(IdMixin, TimestampMixin, Base):
     run_id: Mapped[str] = mapped_column(ForeignKey("agent_runs.id", ondelete="CASCADE"))
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     tool_name: Mapped[str] = mapped_column(String(160))
+    tool_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
     risk_class: Mapped[str] = mapped_column(String(40), default="read")
     status: Mapped[str] = mapped_column(String(40), default="created")
     redacted_arguments: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     redacted_result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    input_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    output_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    arguments_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    policy_decision: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_size_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
 
 class Approval(IdMixin, TimestampMixin, Base):
@@ -282,6 +315,17 @@ class Approval(IdMixin, TimestampMixin, Base):
     policy_version: Mapped[str] = mapped_column(String(80), default="phase1")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    tool_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    arguments_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    risk_class: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    decided_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    denial_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approval_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
 class Skill(IdMixin, TimestampMixin, Base):

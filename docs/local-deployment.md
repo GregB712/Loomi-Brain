@@ -7,7 +7,7 @@ make setup
 make dev
 ```
 
-Open the web app at `http://127.0.0.1:3000` and the Knowledge Library at `http://127.0.0.1:3000/knowledge`.
+Open the web app at `http://127.0.0.1:3000`, the Knowledge Library at `http://127.0.0.1:3000/knowledge`, search at `http://127.0.0.1:3000/search`, and cited chat at `http://127.0.0.1:3000/chat`.
 
 Local owner credentials:
 
@@ -28,7 +28,7 @@ docker compose -f infra/docker/compose.yml --profile scan up -d clamav
 docker compose -f infra/docker/compose.yml --profile observability up -d observability
 ```
 
-The Phase 2 request path uses the local object store adapter and fake scanner by default. MinIO and ClamAV containers are present for later adapter work.
+The Phase 2 request path uses the local object store adapter and fake scanner by default. Phase 3 chat uses the deterministic mock provider by default, so no paid provider credentials are required. MinIO and ClamAV containers are present for later adapter work.
 
 ## Ingestion Configuration
 
@@ -41,6 +41,10 @@ Relevant settings are documented in `.env.example`:
 - `LOOMI_SCANNER_REQUIRED`
 - `LOOMI_EXTRACTION_ENGINE`
 - `LOOMI_EMBEDDING_MODEL`
+- `LOOMI_CHAT_PROVIDER`
+- `LOOMI_CHAT_MODEL`
+- `LOOMI_OPENAI_COMPATIBLE_BASE_URL`
+- `LOOMI_VLLM_BASE_URL`
 
 Use `LOOMI_EXTRACTION_ENGINE=docling` only after installing the optional API extra:
 
@@ -48,6 +52,8 @@ Use `LOOMI_EXTRACTION_ENGINE=docling` only after installing the optional API ext
 cd apps/api
 uv sync --extra docling
 ```
+
+Use `LOOMI_CHAT_PROVIDER=vllm` and `LOOMI_VLLM_BASE_URL=<local OpenAI-compatible URL>` to test a local vLLM server.
 
 ## Stop
 

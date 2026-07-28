@@ -19,9 +19,9 @@ import { MetricCard, StatusPill } from "@loomi/ui";
 
 const navigation = [
   { label: "Home", icon: Home, current: true, href: "/" },
-  { label: "Chat", icon: MessageSquare, href: "#" },
+  { label: "Chat", icon: MessageSquare, href: "/chat" },
   { label: "Knowledge", icon: Library, href: "/knowledge" },
-  { label: "Search", icon: Search, href: "#" },
+  { label: "Search", icon: Search, href: "/search" },
   { label: "Runs", icon: Workflow, href: "#" },
   { label: "Skills", icon: Sparkles, href: "#" },
   { label: "MCP", icon: Plug, href: "#" },
@@ -45,8 +45,8 @@ const pipeline = [
   {
     title: "Cited chat",
     meta: "Hybrid retrieval, mock LLM mode, citation validation",
-    tone: "neutral" as const,
-    status: "Queued",
+    tone: "good" as const,
+    status: "Ready",
   },
 ];
 
@@ -129,8 +129,8 @@ export default function DashboardPage() {
             aria-label="Environment status"
           >
             <p className="panel-label">Phase</p>
-            <p className="panel-value">Ingestion</p>
-            <StatusPill tone="good">Phase 2</StatusPill>
+            <p className="panel-value">Search + Chat</p>
+            <StatusPill tone="good">Phase 3</StatusPill>
           </section>
         </header>
 

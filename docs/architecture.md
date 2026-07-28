@@ -30,6 +30,16 @@ Phase 2 adds the first complete knowledge ingestion slice:
 - Knowledge Library web route at `/knowledge` using the contracts package typed client.
 - OpenAPI snapshot and TypeScript API client in `packages/contracts`.
 
+Phase 3 adds hybrid search and cited chat:
+
+- Lexical, semantic, and hybrid retrieval endpoints under `/api/v1/search`.
+- Retrieval service interfaces for retrievers, rerankers, and context assembly.
+- PostgreSQL FTS and pgvector migration path with SQLite deterministic fallbacks for CI.
+- Provider-neutral model gateway with mock, OpenAI-compatible, OpenAI, Anthropic, Gemini, and vLLM adapters.
+- Persistent conversations, messages, message citations, agent runs, and agent events.
+- SSE streamed response execution with cancellation, retry, source preview, provider health, and feedback endpoints.
+- Search and chat web routes using sanitized Markdown rendering and citation/source panels.
+
 ## Architecture Overview
 
 Loomi-Brain uses a monorepo with separate web, API, worker, shared UI, shared contracts, infrastructure, tests, scripts, and documentation modules.
@@ -201,11 +211,13 @@ Core tables:
 - evaluation_runs
 - evaluation_results
 
-The first pgvector index will use cosine distance unless evaluation data indicates dot product or L2 is better. The index type will be selected after an expected local dataset size is documented and measured.
+The first pgvector index uses cosine distance. Phase 3 adds a PostgreSQL `vector(16)` column for the current deterministic embedding dimension and an HNSW cosine index. This is sized for synthetic/demo scale and must be migrated when production embedding dimensions change. SQLite tests continue to use JSON vectors and deterministic Python cosine scoring.
 
 Phase 1 enables the pgvector extension on PostgreSQL but stores embedding vectors as JSON until the ingestion phase defines the embedding dimensions and index strategy. That keeps the initial migration runnable while avoiding a premature vector schema.
 
 Phase 2 persists deterministic embedding vectors as JSON with dimension/model/version/checksum metadata. This keeps local tests deterministic and avoids mixing vector dimensions before retrieval evaluation defines the pgvector schema. The migration adds ingestion progress, timing, cancellation, stage logs, chunk stable IDs, text hashes, chunker version, embedding version, vector checksum, parser metadata, and collection uniqueness indexes.
+
+Phase 3 keeps JSON vectors for deterministic tests and mirrors them into pgvector on PostgreSQL. Lexical search uses a GIN index over `to_tsvector('english', chunks.text)`. Hybrid rank fusion uses reciprocal rank fusion before duplicate suppression and token-budget context assembly.
 
 ## Ingestion Pipeline
 
@@ -256,14 +268,15 @@ Phase 2 implements file upload ingestion only. URL import remains out of scope u
 ## Retrieval And Cited Answer Flow
 
 1. Receive question and filters.
-2. Classify intent with a fast model or mock provider.
+2. Validate query bounds and owner-scoped filters.
 3. Retrieve lexical and vector candidates.
-4. Fuse rankings and apply filters.
-5. Deduplicate context and enforce token budget.
-6. Synthesize answer using untrusted context labels.
-7. Validate citations against selected context.
-8. Stream answer, citations, metrics, warnings, and trace IDs.
-9. Persist conversation, run, model calls, retrieval spans, and feedback hooks.
+4. Fuse rankings with reciprocal rank fusion for hybrid mode.
+5. Apply minimum score, source diversity, duplicate suppression, and token budget.
+6. Label selected chunks as untrusted evidence with opaque citation IDs.
+7. Synthesize answer through a provider-neutral adapter.
+8. Validate citations against selected context.
+9. Stream answer, citations, metrics, warnings, and trace IDs.
+10. Persist conversation, messages, run state, run events, citations, and feedback hooks.
 
 ## Agent State Machine
 

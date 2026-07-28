@@ -47,6 +47,21 @@ class Settings(BaseSettings):
     chunk_overlap_chars: int = 180
     embedding_dimensions: int = 16
     embedding_model: str = "loomi-deterministic-embedding-v1"
+    chat_provider: Literal["mock", "openai-compatible", "openai", "anthropic", "gemini", "vllm"] = (
+        "mock"
+    )
+    chat_model: str = "loomi-mock-cited-chat-v1"
+    openai_compatible_base_url: str | None = None
+    openai_compatible_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+    anthropic_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
+    vllm_base_url: str | None = None
+    model_request_timeout_seconds: float = 30.0
+    model_max_retries: int = 2
+    model_max_input_tokens: int = 6000
+    model_max_output_tokens: int = 800
+    model_max_estimated_cost_usd: float = 0.25
     extraction_engine: Literal["builtin", "docling"] = "builtin"
     scanner_mode: Literal["fake-clean", "fake-reject", "unavailable"] = "fake-clean"
     scanner_required: bool = False

@@ -44,6 +44,15 @@ Residual Phase 2 risks:
 - URL ingestion is deferred because SSRF protections are not implemented.
 - Embeddings are JSON vectors with deterministic fake values, not pgvector-native production embeddings.
 
+Phase 3 implements the first retrieval and cited-chat surface. Retrieved candidates, selected context, provider responses, generated Markdown, citation IDs, and source previews are untrusted. Implemented controls include owner-scoped search/conversation/source/provider/feedback endpoints, bounded query and result sizes, server-side provider secrets, deterministic mock provider for CI, untrusted-evidence prompt labels, citation validation against selected chunks, fabricated citation removal warnings, sanitized React Markdown rendering with raw HTML disabled, unsafe link filtering, persisted cancellation state, and no vector exposure through public endpoints.
+
+Residual Phase 3 risks:
+
+- Prompt injection is mitigated but not solved perfectly.
+- Semantic retrieval uses deterministic local embeddings for CI; production embedding quality needs a larger evaluation dataset.
+- Rate limiting remains a later hardening item.
+- Real provider streaming is normalized through adapters but CI covers mock/provider-error paths rather than live paid providers.
+
 ## Trust Boundaries
 
 ```mermaid
@@ -253,6 +262,8 @@ Tests:
 Phase 1 security tests cover unauthenticated document access, owner login, bad-password rejection, CSRF rejection on logout, logout revocation, explicit session revocation, and authenticated owner-scoped document listing.
 
 Phase 2 security tests cover unauthenticated upload, missing CSRF, path traversal filename neutralization, executable/unsupported upload rejection, MIME mismatch rejection, malformed Office rejection, malicious HTML preview sanitization, prompt-injection text treated as data, scanner rejection, required scanner unavailable fail-closed behavior, oversized upload rejection, idempotent re-index, and deletion removing derived data.
+
+Phase 3 security tests cover authenticated search/chat/provider/feedback routes, prompt-injection evidence treated as untrusted, no-answer behavior, fabricated citation rejection, source chunk lookup through owner scope, provider health without secret exposure, and cancellation state updates.
 
 ### Upload And Parsing
 

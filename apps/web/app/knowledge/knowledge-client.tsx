@@ -20,6 +20,7 @@ import {
   ListRestart,
   Loader2,
   LogIn,
+  MessageSquare,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -295,6 +296,18 @@ export function KnowledgeClient() {
               <Link className="nav-link" href="/knowledge" aria-current="page">
                 <Library size={18} strokeWidth={1.8} aria-hidden="true" />
                 <span>Knowledge</span>
+              </Link>
+            </li>
+            <li>
+              <Link className="nav-link" href="/search">
+                <Search size={18} strokeWidth={1.8} aria-hidden="true" />
+                <span>Search</span>
+              </Link>
+            </li>
+            <li>
+              <Link className="nav-link" href="/chat">
+                <MessageSquare size={18} strokeWidth={1.8} aria-hidden="true" />
+                <span>Chat</span>
               </Link>
             </li>
           </ul>

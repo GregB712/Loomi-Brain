@@ -146,6 +146,8 @@ Phase 2 implementation notes:
 
 ## Phase 3: Search And Cited Chat
 
+Status: implemented.
+
 Goal: owner can search and ask questions over synthetic documents with streamed, citation-validated answers.
 
 Work items:
@@ -167,6 +169,18 @@ Acceptance criteria:
 - No-answer path works when evidence is missing.
 - Provider timeout does not corrupt conversation state.
 - Prompt-injection fixture cannot override system policy.
+
+Phase 3 implementation notes:
+
+- Retrieval is implemented behind internal retriever/reranker/context assembler interfaces.
+- Lexical search uses PostgreSQL FTS where available and deterministic fallback scoring in tests.
+- Semantic search uses pgvector on PostgreSQL and deterministic JSON-vector cosine fallback in tests.
+- Hybrid search uses reciprocal rank fusion with documented weights.
+- Chat uses typed SSE events and persists run events, messages, and citations.
+- Citations are validated against selected chunks; invented IDs are removed and warned.
+- The model gateway includes deterministic mock plus OpenAI-compatible, OpenAI, Anthropic, Gemini, and vLLM adapters.
+- Search and chat UI routes support filters, model/search-mode controls, streamed output, citations, source previews, stop/retry/copy/feedback actions, and trace/usage details.
+- `make eval` produces deterministic synthetic retrieval/citation/no-answer metrics.
 
 ## Phase 4: Agent Runtime
 

@@ -10,7 +10,7 @@ from uuid import UUID
 
 import structlog
 from fastapi import UploadFile
-from sqlalchemy import delete, desc, func, select
+from sqlalchemy import delete, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from loomi_api.config import Settings
@@ -630,7 +630,7 @@ async def _replace_indexes(
             )
         )
         session.add(
-            Embedding(
+            embedding := Embedding(
                 chunk_id=chunk_id,
                 owner_user_id=document.owner_user_id,
                 provider=vector.provider,
@@ -641,6 +641,8 @@ async def _replace_indexes(
                 vector_json=vector.vector,
             )
         )
+        await session.flush()
+        await _store_pgvector(session, embedding.id, vector.vector)
     await session.commit()
 
 
@@ -672,3 +674,13 @@ def _stage_log_entry(stage: str) -> dict[str, str]:
 
 def _uuid_from_sha256(value: str) -> str:
     return str(UUID(value[:32]))
+
+
+async def _store_pgvector(session: AsyncSession, embedding_id: str, vector: list[float]) -> None:
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    vector_literal = "[" + ",".join(f"{value:.8f}" for value in vector) + "]"
+    await session.execute(
+        text("update embeddings set vector = CAST(:vector AS vector) where id = :embedding_id"),
+        {"vector": vector_literal, "embedding_id": embedding_id},
+    )

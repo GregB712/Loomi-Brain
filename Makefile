@@ -42,7 +42,7 @@ seed:
 	cd apps/api && $(UV) run python -m loomi_api.seed
 
 eval:
-	@echo "Evaluation harness starts in Phase 5."
+	cd apps/api && PYTHONPATH=src $(UV) run python -m loomi_api.evaluation.run
 
 demo:
 	@echo "Demo mode starts after ingestion and mock LLM slices land."

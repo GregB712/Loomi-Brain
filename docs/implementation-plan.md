@@ -1,0 +1,285 @@
+# Loomi-Brain Implementation Plan
+
+## Reader And Action
+
+Reader: the engineer implementing Loomi-Brain phase by phase.
+
+Post-read action: execute coherent, reviewable increments without skipping docs, tests, security controls, or verification.
+
+## Operating Rules
+
+- Work in small vertical slices.
+- Do not overwrite useful existing code without explanation.
+- Do not use real personal documents or credentials.
+- Do not use pre-release dependencies unless an ADR justifies it.
+- Generate lockfiles before claiming dependency setup is complete.
+- Run formatting, linting, type checking, tests, and relevant integration checks at each phase boundary.
+- Never claim a test passed unless it was executed after the last relevant change.
+- If an external service is unavailable, provide a mock or fake and list the exact real integration commands.
+
+## Phase 0: Discovery And Design
+
+Status: in progress.
+
+Deliverables:
+
+- Repository inspection summary.
+- Product requirements.
+- Architecture.
+- Threat model.
+- Implementation plan.
+- Assumptions.
+- ADRs for monorepo, agent runtime, model gateway, document extraction, MCP, and auth boundary.
+- Proposed directory tree.
+- Phased checklist.
+
+Verification:
+
+- Documentation files exist.
+- Documentation files contain substantive requirements, architecture, security, and implementation content.
+- Markdown is readable as plain text.
+- No secrets are present.
+
+## Phase 1: Foundation
+
+Goal: a runnable monorepo skeleton with owner auth boundary, API health, UI shell, database migrations, local Docker services, and CI.
+
+Work items:
+
+1. Create monorepo directories.
+2. Add root package manager metadata and pnpm workspace.
+3. Add Python API and worker projects managed by uv.
+4. Generate lockfiles for frontend and backend dependencies.
+5. Add FastAPI application with health, readiness, liveness, request IDs, structured logs, CORS allowlist, and security headers.
+6. Add SQLAlchemy async database layer and Alembic migrations for owner, sessions, documents, jobs, conversations, runs, skills, MCP, audit, and evaluation base tables.
+7. Add backend-owned auth boundary with seeded owner, secure cookie settings, CSRF token flow, session revocation, and owner checks.
+8. Add Next.js app shell with dashboard, navigation, themes, responsive layout, and accessible focus states.
+9. Add reusable UI package foundation.
+10. Add Docker Compose for PostgreSQL with pgvector, Redis, API, worker, web, optional local object store, optional ClamAV, and optional observability profile.
+11. Add Makefile commands: setup, dev, test, lint, typecheck, security, migrate, seed, eval, demo, down.
+12. Add CI workflow for install, format, lint, type checks, tests, builds, database integration tests, dependency scan, container build, and artifact upload where useful.
+
+Acceptance criteria:
+
+- `make setup` installs from lockfiles.
+- `make dev` starts local services.
+- API health endpoints return expected responses.
+- Owner can log in and log out in local mode.
+- Unauthorized document list request is blocked.
+- Frontend renders the app shell on desktop and mobile.
+- Initial migrations apply to PostgreSQL.
+
+Verification commands:
+
+- `make format`
+- `make lint`
+- `make typecheck`
+- `make test`
+- `make security`
+- `make dev` with manual health check
+
+## Phase 2: Knowledge Ingestion
+
+Goal: synthetic files can be uploaded, scanned, extracted, chunked, embedded through mock/local providers, indexed, previewed, retried, re-indexed, and deleted.
+
+Work items:
+
+1. Upload intent and completion API.
+2. Private object storage adapter.
+3. ClamAV-compatible scanner interface and fake scanner.
+4. Content MIME detection.
+5. Docling extraction adapter with resource limits.
+6. Narrow adapters for CSV, Markdown, text, and HTML where needed.
+7. Chunking service with versioned strategy.
+8. Embedding provider interface and deterministic mock embeddings.
+9. Lexical and vector index persistence.
+10. Ingestion job progress events.
+11. Knowledge library UI with upload drop zone, table/card views, filters, preview, status, progress, retry, re-index, and delete.
+
+Acceptance criteria:
+
+- Synthetic PDF, Markdown, CSV, and hostile prompt-injection document ingest successfully or fail safely with visible status.
+- Duplicate content is detected.
+- Deletion removes source, chunks, embeddings, and derived assets.
+- MIME mismatch is rejected or quarantined.
+
+## Phase 3: Search And Cited Chat
+
+Goal: owner can search and ask questions over synthetic documents with streamed, citation-validated answers.
+
+Work items:
+
+1. Lexical search.
+2. Vector search.
+3. Hybrid rank fusion.
+4. Filters and cursor pagination.
+5. Retrieval debug mode.
+6. Model provider gateway with mock provider, OpenAI-compatible adapter, LiteLLM adapter, and local vLLM example.
+7. SSE chat stream.
+8. Conversation and message persistence.
+9. Citation validation.
+10. Chat workspace UI with citations, source panel, trace detail, model selector, skill selector, stop/retry, copy/export, and feedback.
+
+Acceptance criteria:
+
+- Mock LLM answers with citations from selected chunks.
+- No-answer path works when evidence is missing.
+- Provider timeout does not corrupt conversation state.
+- Prompt-injection fixture cannot override system policy.
+
+## Phase 4: Agent Runtime
+
+Goal: agent runs are durable, bounded, inspectable, and enforce approval policy.
+
+Work items:
+
+1. Implement internal protocols: ModelProvider, EmbeddingProvider, AgentRuntime, Tool, Retriever, Reranker, TraceExporter.
+2. Implement explicit state machine.
+3. Persist runs, events, model calls, retrieval spans, tool calls, approvals, and errors.
+4. Enforce max steps, tool limits, budgets, timeouts, cancellation, and idempotency keys.
+5. Add tool registry with safe built-in tools.
+6. Add approval flow.
+7. Add run inspector UI with timeline, state transitions, retrieval spans, model calls, tool inputs, redacted outputs, errors, cost, latency, and trace IDs.
+
+Acceptance criteria:
+
+- Tool approval required for high-risk tool.
+- Rejected approval moves run to a safe state.
+- Max-step enforcement stops runaway loops.
+- Run inspector explains what happened.
+
+## Phase 5: Observability And Evaluation
+
+Goal: local traces, metrics, LLM observability, redaction, feedback, and synthetic evaluations work without paid services.
+
+Work items:
+
+1. OpenTelemetry instrumentation.
+2. Langfuse adapter.
+3. Redaction pipeline.
+4. Prompt and response capture configuration.
+5. Evaluation dataset schema and fixtures.
+6. Retrieval precision/recall metrics.
+7. Citation validity, groundedness, no-answer, latency, and cost checks.
+8. Observability UI summaries.
+
+Acceptance criteria:
+
+- Trace IDs correlate UI, API, worker, retrieval, model, and tool events.
+- Langfuse unavailable path is graceful.
+- Evaluation command produces a report from synthetic fixtures.
+
+## Phase 6: MCP
+
+Goal: owner can connect a harmless demo MCP server and invoke allowed tools while forbidden tools are blocked.
+
+Work items:
+
+1. MCP registry.
+2. stdio transport client with executable templates.
+3. Streamable HTTP transport client.
+4. Discovery of tools, resources, and prompts.
+5. Per-server and per-tool policy.
+6. Typed argument validation.
+7. Approval integration.
+8. Result sanitization and truncation.
+9. Harmless test MCP server.
+10. MCP integrations UI.
+
+Acceptance criteria:
+
+- Allowed read-only demo tool executes.
+- Forbidden tool is blocked.
+- Destructive tool requires explicit approval.
+- Server metadata cannot alter policy.
+
+## Phase 7: Skills
+
+Goal: owner can create, validate, version, test, dry-run, publish, archive, disable, import, export, and execute safe declarative skills.
+
+Work items:
+
+1. Skill manifest schema.
+2. Manifest parser and validator.
+3. Logic-limited templating.
+4. Version and state machine.
+5. Immutable published versions.
+6. Test-case runner.
+7. Dry-run mode.
+8. Skill editor UI with structured form, manifest view, validation, preview, tests, and history.
+
+Acceptance criteria:
+
+- Valid skill can publish and execute.
+- Invalid schema fails with useful errors.
+- Forbidden template or tool fails.
+- Published skill cannot be mutated.
+
+## Phase 8: Deployment And Hardening
+
+Goal: local, cloud, and private/hybrid profiles are documented, tested, and hardened.
+
+Work items:
+
+1. Local Docker profile.
+2. Cloud deployment profile.
+3. Private/hybrid profile.
+4. Security headers.
+5. Rate limiting.
+6. Dependency, secret, CodeQL, and container scanning.
+7. Backup and restore.
+8. Data export and deletion.
+9. End-to-end tests.
+10. README polish and screenshots.
+
+Acceptance criteria:
+
+- Fresh clone local setup is tested.
+- Cloud deployment docs are coherent and honest.
+- Backup and restore procedures are tested locally.
+- CI passes all required checks.
+
+## Proposed Directory Tree
+
+```text
+loomi-brain/
+  apps/
+    web/
+    api/
+    worker/
+  packages/
+    ui/
+    contracts/
+    config/
+  infra/
+    docker/
+    migrations/
+    deployment/
+  docs/
+    decisions/
+  scripts/
+  tests/
+  .github/
+    workflows/
+```
+
+## Dependency Lock Strategy
+
+1. Use Corepack to activate a pinned pnpm version.
+2. Generate pnpm lockfile after selecting frontend dependencies.
+3. Use uv to create backend and worker lockfiles.
+4. Reject alpha, beta, release-candidate, dev, and yanked releases unless an ADR documents the exception.
+5. Run install, import smoke tests, type checks, and minimal build before accepting version pins.
+6. Commit lockfiles with manifests.
+
+## First Implementation Slice
+
+Phase 1 should begin with a thin vertical slice:
+
+1. API health endpoint with request ID.
+2. Database connection and first migration.
+3. Web app shell calling API health.
+4. Docker Compose for PostgreSQL, Redis, API, worker, and web.
+5. CI job that installs, lints, type-checks, tests, and builds this slice.
+
+This slice proves the monorepo, toolchains, API contract, database, frontend, and local orchestration before deeper product features are added.

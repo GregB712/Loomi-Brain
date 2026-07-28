@@ -1,0 +1,341 @@
+# Loomi-Brain Architecture
+
+## Reader And Action
+
+Reader: a backend, frontend, AI platform, or security engineer evaluating the project design.
+
+Post-read action: understand the system boundaries, data flow, API contract, technology choices, and initial dependency baseline well enough to implement Phase 1.
+
+## Current Repository State
+
+The repository started empty except for agent metadata directories with no files inside them. There was no valid Git repository, source code, package manifest, docs, tests, or CI configuration. Git metadata was initialized during discovery, but branch metadata writes are restricted in this environment, so branch renaming is deferred.
+
+## Architecture Overview
+
+Loomi-Brain uses a monorepo with separate web, API, worker, shared UI, shared contracts, infrastructure, tests, scripts, and documentation modules.
+
+```mermaid
+flowchart LR
+  Owner[Owner Browser] --> Web[Next.js Web App]
+  Web --> API[FastAPI API]
+  API --> DB[(PostgreSQL + pgvector)]
+  API --> ObjectStore[(Private Object Storage)]
+  API --> Queue[Job Broker]
+  Queue --> Worker[Document Worker]
+  Worker --> DB
+  Worker --> ObjectStore
+  Worker --> Scan[Malware Scan Adapter]
+  Worker --> Extract[Docling + Format Adapters]
+  API --> Agent[Agent Runtime]
+  Agent --> Retriever[Retriever]
+  Retriever --> DB
+  Agent --> ModelGateway[Model Gateway]
+  ModelGateway --> CloudLLMs[Cloud Providers]
+  ModelGateway --> LocalLLMs[Local vLLM]
+  Agent --> MCP[MCP Client Boundary]
+  MCP --> MCPServers[Approved MCP Servers]
+  API --> Observability[OpenTelemetry + Langfuse]
+  Worker --> Observability
+  Web --> Observability
+```
+
+## Technology Baseline
+
+This baseline was checked on 2026-07-28 against primary package sources and local tooling. Lockfiles will be generated before implementation claims are made.
+
+### Local Environment
+
+- Node.js: 24.12.0, compatible with Next.js and ESLint requirements.
+- npm: 11.13.0.
+- Corepack: 0.34.5.
+- pnpm: missing locally; use Corepack in setup.
+- Python: 3.10.12 locally; uv resolved CPython 3.14.3 for the initial API and worker lockfiles.
+- uv: 0.11.3.
+- Docker: 29.6.2.
+- GNU Make: 4.3.
+
+### Frontend
+
+- Next.js 16.2.12 with App Router.
+- React 19.2.x and React DOM matched to React.
+- TypeScript 6.0.3 for the first lockfile because TypeScript 7.0.2 is latest but is outside the current supported peer range of the TypeScript ESLint stack.
+- Tailwind CSS 4.3.3.
+- shadcn/ui patterns over Radix primitives.
+- TanStack Query 5.101.4.
+- React Hook Form 7.83.0.
+- Zod 4.4.3.
+- ESLint 9.39.5 for the first lockfile because the Next lint plugin set has not yet accepted ESLint 10 peers.
+- Prettier 3.9.6.
+- Playwright for end-to-end and route-level UI verification.
+
+### Backend And Worker
+
+- Python 3.14.3 target for v1 after the initial API and worker dependency solve succeeded with uv.
+- FastAPI 0.140.7.
+- Pydantic 2.13.4; ignore 2.14.0 alpha until stable.
+- SQLAlchemy 2.0.51; ignore 2.1 beta until stable.
+- Alembic 1.18.5.
+- asyncpg 0.31.0.
+- pgvector Python 0.5.0.
+- Docling 2.115.0 for document extraction.
+- Dramatiq 2.2.0 with Redis for background jobs. Its LGPL license is acceptable for a dynamically linked application dependency but must be documented in dependency notices.
+- Ruff, mypy or pyright, pytest, pytest-asyncio, Hypothesis, and Testcontainers.
+
+### AI, Observability, And Integrations
+
+- PydanticAI 2.19.0 as default agent runtime for typed structured output and direct Python model.
+- LangGraph remains a documented alternative for more complex durable graphs if the initial explicit state machine becomes too constrained.
+- LiteLLM 1.93.0 behind an internal adapter; ignore pre-release versions.
+- Langfuse 4.14.1 for LLM observability.
+- OpenTelemetry SDK 1.44.0 for traces, metrics, and logs.
+- MCP protocol support based on the latest published specification during Phase 0: stdio and Streamable HTTP, with HTTP+SSE only as backward compatibility.
+
+## Module Boundaries
+
+### Web
+
+The web app owns UI composition, routing, accessibility, streaming presentation, form validation, local interaction state, and API-client usage. It does not store provider secrets, bypass owner authorization, directly connect to MCP servers, or execute tools.
+
+### API
+
+The API owns authentication, owner authorization, request validation, OpenAPI generation, service orchestration, streaming agent execution, approvals, provider configuration, signed upload/download URLs, and audit events.
+
+### Worker
+
+The worker owns ingestion jobs, file scanning, media detection, extraction, OCR orchestration, normalization, chunking, embedding, indexing, and job progress events.
+
+### Contracts
+
+Contracts hold generated TypeScript clients and shared schema artifacts. Backend OpenAPI remains the source of truth for HTTP contracts.
+
+### UI Package
+
+The UI package holds reusable, accessible components such as AppShell, Sidebar, CommandPalette, DataTable, ChatMessage, CitationChip, SourcePreview, ToolCallCard, ApprovalCard, RunTimeline, UploadDropzone, SkillEditor, MCPServerCard, and JsonViewer with redaction.
+
+## API Design
+
+All API routes are versioned under `/api/v1`. The same-repo frontend is the first caller, but the API is designed as a durable contract.
+
+### Cross-Cutting Rules
+
+- Authentication: secure, HttpOnly, SameSite cookies for browser sessions.
+- Authorization: owner check for every private resource in service and data access layers.
+- Error shape: Problem Details compatible envelope with `type`, `title`, `status`, `detail`, `code`, `request_id`, `trace_id`, and optional `errors`.
+- Pagination: cursor pagination by default with a hard `limit` cap.
+- Idempotency: required on side-effecting retries such as uploads, delete requests, ingestion retry, exports, tool execution, and chat run creation.
+- Streaming: Server-Sent Events for assistant events unless a future workflow proves WebSockets are required.
+- OpenAPI: generated by FastAPI and used to generate the frontend client.
+
+### Endpoint Groups
+
+- Health: liveness, readiness, dependency health, version.
+- Session: current owner, login, logout, session list, session revoke, CSRF token.
+- Documents: upload intent, upload complete, list, detail, versions, preview, re-index, delete.
+- Ingestion jobs: list, detail, retry, cancel, event stream.
+- Search: query with lexical, semantic, hybrid modes and filters.
+- Conversations: list, create, detail, messages, delete/export.
+- Agent execution: run creation, SSE stream, cancel, retry, run detail.
+- Approvals: pending approvals, approve, reject, expire.
+- Providers: configurations, model capabilities, health checks.
+- Skills: drafts, publish, archive, disable, versions, tests, dry-run, import/export.
+- MCP: servers, capabilities, policies, health checks, audit log.
+- Observability: trace summaries, run metrics, ingestion metrics, feedback.
+- Evaluations: datasets, runs, results.
+- Data rights: export, deletion, backup metadata.
+
+## Data Model
+
+Use UUID primary keys, timezone-aware timestamps, created/updated/deleted metadata, ownership columns on sensitive tables, and explicit constraints.
+
+Core tables:
+
+- users
+- owner_settings
+- auth_accounts
+- sessions
+- provider_configurations
+- documents
+- document_versions
+- ingestion_jobs
+- chunks
+- embeddings
+- tags
+- document_tags
+- collections
+- collection_documents
+- conversations
+- messages
+- message_citations
+- agent_runs
+- agent_events
+- tool_calls
+- approvals
+- skills
+- skill_versions
+- skill_tests
+- mcp_servers
+- mcp_capabilities
+- audit_events
+- user_feedback
+- evaluation_datasets
+- evaluation_runs
+- evaluation_results
+
+The first pgvector index will use cosine distance unless evaluation data indicates dot product or L2 is better. The index type will be selected after an expected local dataset size is documented and measured.
+
+## Ingestion Pipeline
+
+```mermaid
+sequenceDiagram
+  participant Owner
+  participant Web
+  participant API
+  participant Worker
+  participant Store as Object Store
+  participant DB as PostgreSQL
+  participant Scan as Malware Scanner
+  participant Extract as Extraction/OCR
+
+  Owner->>Web: Upload/import source
+  Web->>API: Create upload/import request
+  API->>DB: Persist document + ingestion job
+  API->>Store: Store source outside static paths
+  API-->>Web: Job accepted
+  Worker->>DB: Claim job
+  Worker->>Scan: Scan source
+  Worker->>Extract: Detect MIME + extract structure
+  Worker->>Worker: Normalize, chunk, embed
+  Worker->>DB: Persist chunks, embeddings, provenance
+  Worker->>DB: Mark job complete or failed
+  Web->>API: Poll or subscribe to job status
+```
+
+Pipeline stages:
+
+1. Upload or import.
+2. Validate.
+3. Malware scan.
+4. Detect media type from content.
+5. Extract text and structure.
+6. OCR when needed.
+7. Normalize.
+8. Remove or mark repeated boilerplate.
+9. Split into semantically meaningful chunks.
+10. Generate embeddings.
+11. Index lexical and vector representations.
+12. Persist provenance.
+13. Mark ingestion status.
+14. Emit metrics and trace events.
+
+## Retrieval And Cited Answer Flow
+
+1. Receive question and filters.
+2. Classify intent with a fast model or mock provider.
+3. Retrieve lexical and vector candidates.
+4. Fuse rankings and apply filters.
+5. Deduplicate context and enforce token budget.
+6. Synthesize answer using untrusted context labels.
+7. Validate citations against selected context.
+8. Stream answer, citations, metrics, warnings, and trace IDs.
+9. Persist conversation, run, model calls, retrieval spans, and feedback hooks.
+
+## Agent State Machine
+
+```mermaid
+stateDiagram-v2
+  [*] --> receive_request
+  receive_request --> classify_intent
+  classify_intent --> retrieve_context
+  retrieve_context --> plan
+  plan --> request_tool_approval: high-risk tool needed
+  request_tool_approval --> execute_tool: approved
+  request_tool_approval --> synthesize_answer: rejected or expired
+  plan --> execute_tool: auto-approved read-only tool
+  execute_tool --> retrieve_context: more context needed
+  execute_tool --> synthesize_answer
+  plan --> synthesize_answer
+  synthesize_answer --> validate_citations
+  validate_citations --> persist_result
+  persist_result --> complete
+  receive_request --> failed
+  classify_intent --> failed
+  retrieve_context --> failed
+  execute_tool --> failed
+  synthesize_answer --> failed
+  validate_citations --> failed
+  failed --> persist_result
+```
+
+Runtime controls:
+
+- Max steps and max tool calls per run.
+- Request timeout and cancellation.
+- Per-run token and cost budgets.
+- Idempotency keys for side effects.
+- Durable event records.
+- Retry only transient failures.
+- Explicit untrusted-content boundaries.
+
+## MCP Architecture
+
+Loomi-Brain is an MCP client, not an unrestricted proxy. The model never receives direct arbitrary MCP access.
+
+MCP servers are configured by the owner through registry records. Stdio servers use administrator-defined executable and argument templates, a minimal environment, restricted working directories, output-size caps, and no shell metacharacter expansion. Streamable HTTP servers require allowed origins, authentication where supported, size limits, timeouts, and protocol-version handling.
+
+Tool risk classes:
+
+- read-only
+- local mutation
+- external mutation
+- credential-sensitive
+- destructive
+
+External mutation, credential-sensitive, and destructive tools require explicit owner confirmation.
+
+## Deployment Profiles
+
+### Fully Local
+
+Docker Compose runs web, API, worker, PostgreSQL with pgvector, Redis, optional MinIO, optional Langfuse, optional OpenTelemetry collector, optional ClamAV, and optional vLLM. Services bind to localhost by default.
+
+### Cloud
+
+Frontend runs on Vercel. API and worker run on a long-running container platform. PostgreSQL with pgvector runs on a managed service such as Neon. Object storage uses a private S3-compatible bucket. Provider secrets stay in server-side secret storage.
+
+### Private/Hybrid
+
+The first secure hybrid release prefers running the full stack on a private machine and accessing it through Tailscale. Exposing local vLLM publicly is explicitly out of scope.
+
+## Proposed Directory Tree
+
+```text
+loomi-brain/
+  apps/
+    web/
+    api/
+    worker/
+  packages/
+    ui/
+    contracts/
+    config/
+  infra/
+    docker/
+    migrations/
+    deployment/
+  docs/
+    decisions/
+  scripts/
+  tests/
+  .github/
+    workflows/
+```
+
+## Architectural Invariants
+
+- API is the authorization boundary.
+- Provider secrets are never shipped to the browser.
+- Retrieved content, tool output, model output, MCP metadata, and skill manifests are untrusted.
+- Published skill versions are immutable.
+- Side-effecting operations are idempotent and audited.
+- Observability is useful when available and non-fatal when unavailable.
+- Mock providers and synthetic fixtures are first-class test paths.

@@ -102,15 +102,15 @@ flowchart LR
 
 ## Phase Checklist
 
-1. Discovery and design: complete.
-2. Foundation: implemented.
-3. Knowledge ingestion: implemented.
-4. Search and cited chat.
-5. Agent runtime.
-6. Observability and evaluation.
-7. MCP integration.
-8. Skills system.
-9. Deployment and hardening.
+- [x] Phase 0: Discovery and design.
+- [x] Phase 1: Foundation.
+- [x] Phase 2: Knowledge ingestion.
+- [ ] Phase 3: Search and cited chat.
+- [ ] Phase 4: Agent runtime.
+- [ ] Phase 5: Observability and evaluation.
+- [ ] Phase 6: MCP integration.
+- [ ] Phase 7: Skills system.
+- [ ] Phase 8: Deployment and hardening.
 
 See the implementation plan for acceptance criteria and verification commands.
 

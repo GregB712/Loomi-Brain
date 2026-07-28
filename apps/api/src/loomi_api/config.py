@@ -1,8 +1,10 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_LOCAL_OWNER_PASSWORD = "loomi-local-owner-password"  # noqa: S105
 
 
 class Settings(BaseSettings):
@@ -12,8 +14,35 @@ class Settings(BaseSettings):
 
     app_name: str = "Loomi-Brain API"
     environment: Literal["local", "test", "staging", "production"] = "local"
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    database_url: str = "postgresql+asyncpg://loomi:loomi_dev_password@127.0.0.1:15432/loomi_brain"
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
+    )
     request_id_header: str = "x-request-id"
+    trace_id_header: str = "x-trace-id"
+
+    owner_email: str = "owner@loomi.local"
+    owner_name: str = "Loomi Owner"
+    owner_password: SecretStr = SecretStr(DEFAULT_LOCAL_OWNER_PASSWORD)
+    password_hash_iterations: int = 390_000
+
+    session_cookie_name: str = "loomi_session"
+    csrf_cookie_name: str = "loomi_csrf"
+    csrf_header_name: str = "x-csrf-token"
+    session_cookie_secure: bool = False
+    session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    session_ttl_minutes: int = 60 * 24 * 7
+
+    @model_validator(mode="after")
+    def validate_auth_settings(self) -> Self:
+        if self.environment == "production":
+            if self.owner_password.get_secret_value() == DEFAULT_LOCAL_OWNER_PASSWORD:
+                raise ValueError("LOOMI_OWNER_PASSWORD must be set in production")
+            if not self.session_cookie_secure:
+                raise ValueError("LOOMI_SESSION_COOKIE_SECURE must be true in production")
+            if "*" in self.cors_origins:
+                raise ValueError("LOOMI_CORS_ORIGINS must not contain '*' in production")
+        return self
 
 
 @lru_cache

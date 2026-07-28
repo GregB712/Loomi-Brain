@@ -1,26 +1,35 @@
-from fastapi import FastAPI, Request
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from loomi_api import __version__
+from loomi_api.api import auth, documents, health
 from loomi_api.config import Settings, get_settings
+from loomi_api.db.session import create_engine, create_sessionmaker
 from loomi_api.logging import configure_logging
 from loomi_api.middleware import RequestContextMiddleware
-
-
-class HealthResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    service: str
-    status: str
-    version: str
-    environment: str
-    request_id: str
+from loomi_api.problems import http_exception_handler, validation_exception_handler
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or get_settings()
     configure_logging()
+    db_engine = create_engine(resolved_settings)
+    db_sessionmaker = create_sessionmaker(db_engine)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        app.state.settings = resolved_settings
+        app.state.db_engine = db_engine
+        app.state.db_sessionmaker = db_sessionmaker
+        try:
+            yield
+        finally:
+            await db_engine.dispose()
 
     app = FastAPI(
         title=resolved_settings.app_name,
@@ -28,7 +37,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
+        lifespan=lifespan,
     )
+    app.state.settings = resolved_settings
+    app.state.db_engine = db_engine
+    app.state.db_sessionmaker = db_sessionmaker
 
     app.add_middleware(RequestContextMiddleware, settings=resolved_settings)
     app.add_middleware(
@@ -36,32 +49,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=resolved_settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["authorization", "content-type", resolved_settings.request_id_header],
+        allow_headers=[
+            "authorization",
+            "content-type",
+            resolved_settings.csrf_header_name,
+            resolved_settings.request_id_header,
+            resolved_settings.trace_id_header,
+        ],
     )
-
-    @app.get("/health/live", response_model=HealthResponse, tags=["health"])
-    async def liveness(request: Request) -> HealthResponse:
-        return _health_response(request, resolved_settings, "live")
-
-    @app.get("/health/ready", response_model=HealthResponse, tags=["health"])
-    async def readiness(request: Request) -> HealthResponse:
-        return _health_response(request, resolved_settings, "ready")
-
-    @app.get("/api/v1/health", response_model=HealthResponse, tags=["health"])
-    async def api_health(request: Request) -> HealthResponse:
-        return _health_response(request, resolved_settings, "ready")
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(documents.router)
 
     return app
-
-
-def _health_response(request: Request, settings: Settings, status: str) -> HealthResponse:
-    return HealthResponse(
-        service=settings.app_name,
-        status=status,
-        version=__version__,
-        environment=settings.environment,
-        request_id=str(request.state.request_id),
-    )
 
 
 app = create_app()

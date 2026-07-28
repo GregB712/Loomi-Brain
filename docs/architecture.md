@@ -8,7 +8,17 @@ Post-read action: understand the system boundaries, data flow, API contract, tec
 
 ## Current Repository State
 
-The repository started empty except for agent metadata directories with no files inside them. There was no valid Git repository, source code, package manifest, docs, tests, or CI configuration. Git metadata was initialized during discovery, but branch metadata writes are restricted in this environment, so branch renaming is deferred.
+The repository started empty except for agent metadata directories with no files inside them. Git metadata was initialized during discovery, but branch metadata writes are restricted in this environment, so branch renaming is deferred.
+
+Phase 1 now contains a runnable monorepo foundation:
+
+- Next.js web app shell for the single-owner workspace.
+- FastAPI API with liveness, readiness, request IDs, trace IDs, structured logs, CORS allowlist, security headers, session endpoints, and a protected document list endpoint.
+- Backend-owned local owner authentication with seeded credentials, server-side session records, hashed session tokens, HttpOnly SameSite cookies, CSRF tokens for authenticated mutations, session revocation, and audit events.
+- SQLAlchemy async database layer and Alembic migration for the Phase 1 base schema.
+- Worker service skeleton with a long-running development mode for Docker Compose.
+- Docker Compose services for PostgreSQL with pgvector, Redis, API, worker, web, and optional storage, malware scan, and observability profiles.
+- CI workflow for frozen installs, formatting, linting, type checks, tests, frontend build, PostgreSQL migration check, local security checks, dependency audit, and container builds.
 
 ## Architecture Overview
 
@@ -128,9 +138,9 @@ All API routes are versioned under `/api/v1`. The same-repo frontend is the firs
 
 ### Endpoint Groups
 
-- Health: liveness, readiness, dependency health, version.
-- Session: current owner, login, logout, session list, session revoke, CSRF token.
-- Documents: upload intent, upload complete, list, detail, versions, preview, re-index, delete.
+- Health: liveness, readiness, dependency health, version. Phase 1 implements liveness and database-backed readiness.
+- Session: current owner, login, logout, session list, session revoke, CSRF token. Phase 1 implements local owner login, current owner, logout, session list, and session revoke.
+- Documents: upload intent, upload complete, list, detail, versions, preview, re-index, delete. Phase 1 implements an owner-scoped list endpoint to verify the authorization boundary.
 - Ingestion jobs: list, detail, retry, cancel, event stream.
 - Search: query with lexical, semantic, hybrid modes and filters.
 - Conversations: list, create, detail, messages, delete/export.
@@ -145,7 +155,7 @@ All API routes are versioned under `/api/v1`. The same-repo frontend is the firs
 
 ## Data Model
 
-Use UUID primary keys, timezone-aware timestamps, created/updated/deleted metadata, ownership columns on sensitive tables, and explicit constraints.
+Use UUID-compatible string primary keys, timezone-aware timestamps, created/updated/deleted metadata, ownership columns on sensitive tables, and explicit constraints. PostgreSQL-native UUID columns can replace the string representation in a later migration if the portability tradeoff stops being useful.
 
 Core tables:
 
@@ -182,6 +192,8 @@ Core tables:
 - evaluation_results
 
 The first pgvector index will use cosine distance unless evaluation data indicates dot product or L2 is better. The index type will be selected after an expected local dataset size is documented and measured.
+
+Phase 1 enables the pgvector extension on PostgreSQL but stores embedding vectors as JSON until the ingestion phase defines the embedding dimensions and index strategy. That keeps the initial migration runnable while avoiding a premature vector schema.
 
 ## Ingestion Pipeline
 

@@ -5,15 +5,12 @@ UV ?= uv
 
 setup:
 	corepack enable
-	$(PNPM) install
-	$(UV) sync --project apps/api
-	$(UV) sync --project apps/worker
+	$(PNPM) install --frozen-lockfile
+	cd apps/api && $(UV) sync --frozen
+	cd apps/worker && $(UV) sync --frozen
 
 dev:
-	@echo "Run web, API, and worker in separate terminals until the dev orchestrator is added:"
-	@echo "  $(PNPM) --filter @loomi/web dev"
-	@echo "  cd apps/api && $(UV) run fastapi dev src/loomi_api/main.py"
-	@echo "  cd apps/worker && $(UV) run python -m loomi_worker.main"
+	docker compose -f infra/docker/compose.yml up --build -d postgres redis api worker web
 
 test:
 	cd apps/api && $(UV) run pytest
@@ -36,13 +33,13 @@ format:
 	$(PNPM) format
 
 security:
-	@echo "Security scanners will be wired after lockfiles and CI are generated."
+	bash scripts/security-check.sh
 
 migrate:
-	@echo "Alembic migrations start in the next Phase 1 slice."
+	cd apps/api && $(UV) run alembic upgrade head
 
 seed:
-	@echo "Synthetic seed data starts after the initial schema lands."
+	cd apps/api && $(UV) run python -m loomi_api.seed
 
 eval:
 	@echo "Evaluation harness starts in Phase 5."

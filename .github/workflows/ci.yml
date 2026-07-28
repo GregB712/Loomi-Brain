@@ -1,0 +1,90 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: loomi_brain
+          POSTGRES_USER: loomi
+          POSTGRES_PASSWORD: loomi_dev_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U loomi -d loomi_brain"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: "0.11.16"
+          enable-cache: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install Node dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: uv sync --frozen
+
+      - name: Install worker dependencies
+        working-directory: apps/worker
+        run: uv sync --frozen
+
+      - name: Check formatting
+        run: corepack pnpm format:check
+
+      - name: Lint
+        run: make lint
+
+      - name: Typecheck
+        run: make typecheck
+
+      - name: Test
+        run: make test
+
+      - name: Build frontend
+        run: corepack pnpm build
+
+      - name: Apply PostgreSQL migrations
+        working-directory: apps/api
+        env:
+          LOOMI_DATABASE_URL: postgresql+asyncpg://loomi:loomi_dev_password@127.0.0.1:5432/loomi_brain
+        run: uv run alembic upgrade head
+
+      - name: Security checks
+        run: make security
+
+      - name: Node dependency audit
+        run: corepack pnpm audit --audit-level high
+
+      - name: Build containers
+        run: docker compose -f infra/docker/compose.yml build api worker web

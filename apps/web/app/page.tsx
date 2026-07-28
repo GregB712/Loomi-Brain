@@ -32,9 +32,9 @@ const navigation = [
 const pipeline = [
   {
     title: "Foundation slice",
-    meta: "API health, request IDs, workspace config, UI shell",
+    meta: "Owner auth, health, migrations, local services, CI",
     tone: "good" as const,
-    status: "Active",
+    status: "Ready",
   },
   {
     title: "Knowledge ingestion",
@@ -53,13 +53,19 @@ const pipeline = [
 const runs = [
   {
     title: "Design verification",
-    meta: "Phase 0 docs checked for draft markers and secret-like patterns",
+    meta: "Docs, ADRs, threat model, and implementation plan are linked",
     tone: "good" as const,
     status: "Clean",
   },
   {
+    title: "Owner boundary",
+    meta: "Server-side sessions, CSRF, revocation, and scoped resources",
+    tone: "good" as const,
+    status: "Guarded",
+  },
+  {
     title: "Provider gateway",
-    meta: "Adapter contract pending after lockfile solve",
+    meta: "Adapter contract begins after ingestion and retrieval slices",
     tone: "warn" as const,
     status: "Pending",
   },
@@ -124,7 +130,7 @@ export default function DashboardPage() {
           >
             <p className="panel-label">Phase</p>
             <p className="panel-value">Foundation</p>
-            <StatusPill tone="warn">Lockfiles pending</StatusPill>
+            <StatusPill tone="good">Phase 1</StatusPill>
           </section>
         </header>
 

@@ -10,7 +10,28 @@ Post-read action: identify the major threats, required controls, and security te
 
 This threat model covers the initial single-owner application: web app, API, worker, database, object storage, document ingestion, retrieval, chat, agent runtime, provider gateway, MCP client, skills, observability, local deployment, cloud deployment, and private/hybrid deployment.
 
-There is not enough application code yet for file-line security findings. This document is the baseline design threat model; code-level security reviews must be performed as implementation lands.
+This document remains the baseline design threat model. Phase 1 now has authentication and schema code, while ingestion, retrieval, agents, MCP, skills, and observability still require code-level security reviews as those surfaces land.
+
+Phase 1 adds enough application code for the authentication boundary to be reviewed and tested. The implemented controls are:
+
+- Public registration is absent.
+- A local owner can be seeded through the backend.
+- Password verification is backend-owned.
+- Browser sessions use server-side records and hashed session tokens.
+- Session cookies are HttpOnly and SameSite.
+- Cookie-authenticated mutations require a CSRF token.
+- Logout and explicit session revocation mark sessions revoked server-side.
+- Document listing requires an owner session and filters by owner on the server.
+- API responses include request and trace identifiers.
+- API middleware adds security headers.
+- Production settings reject the default local password and insecure cookies.
+
+Residual Phase 1 risks:
+
+- Local development credentials are not suitable for remote deployment.
+- Rate limiting is not implemented until hardening.
+- Upload, parsing, model, MCP, and skill attack surfaces are still design-only because those features start in later phases.
+- Optional object storage, malware scanning, and observability services are present as local Compose profiles but are not yet integrated into request handling.
 
 ## Trust Boundaries
 
@@ -215,6 +236,8 @@ Tests:
 - Backend ownership checks.
 - Optional row-level security where practical.
 - No long-lived auth tokens in localStorage.
+
+Phase 1 security tests cover unauthenticated document access, owner login, bad-password rejection, CSRF rejection on logout, logout revocation, explicit session revocation, and authenticated owner-scoped document listing.
 
 ### Upload And Parsing
 

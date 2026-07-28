@@ -19,7 +19,7 @@ Post-read action: execute coherent, reviewable increments without skipping docs,
 
 ## Phase 0: Discovery And Design
 
-Status: in progress.
+Status: complete.
 
 Deliverables:
 
@@ -41,6 +41,8 @@ Verification:
 - No secrets are present.
 
 ## Phase 1: Foundation
+
+Status: implemented.
 
 Goal: a runnable monorepo skeleton with owner auth boundary, API health, UI shell, database migrations, local Docker services, and CI.
 
@@ -76,7 +78,18 @@ Verification commands:
 - `make typecheck`
 - `make test`
 - `make security`
-- `make dev` with manual health check
+- `corepack pnpm build`
+- `docker compose -f infra/docker/compose.yml config`
+- `make dev` with manual health check when Docker image pulls and port binding are available
+
+Phase 1 implementation notes:
+
+- The API enforces single-owner local authentication with server-side sessions, hashed session tokens, HttpOnly SameSite cookies, CSRF verification for authenticated mutations, session revocation, and audit events.
+- The protected document list endpoint exists to verify the ownership boundary before ingestion lands.
+- The initial migration creates base tables for owner auth, sessions, documents, jobs, conversations, runs, tools, approvals, skills, MCP, audit, feedback, and evaluation.
+- PostgreSQL pgvector is enabled in the migration, but embedding vector columns and indexes are deferred to Phase 2 because dimensions and index strategy depend on ingestion and evaluation data.
+- Docker Compose starts PostgreSQL, Redis, API, worker, and web by default. Optional object storage, malware scanning, and observability are Compose profiles for later integration.
+- CI uses frozen installs and verifies formatting, linting, type checks, tests, frontend build, PostgreSQL migrations, security checks, dependency audit, and container builds.
 
 ## Phase 2: Knowledge Ingestion
 

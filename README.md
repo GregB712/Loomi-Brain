@@ -2,15 +2,63 @@
 
 Secure, single-owner second-brain application for private knowledge ingestion, retrieval, cited chat, controlled agent tooling, MCP integrations, observability, evaluation, and declarative skills.
 
-This repository is in Phase 0: discovery and design. The product, architecture, threat model, and implementation plan are written before feature implementation so the first code slices have a clear target.
+This repository is in Phase 1: foundation. The initial monorepo, API, worker, web shell, owner auth boundary, migrations, Docker Compose stack, CI workflow, and local verification commands are in place.
 
 ## Current State
 
 - Repository initialized from an empty workspace.
-- No application code has been implemented yet.
-- Required Phase 0 documentation exists.
-- Dependency choices are recorded as a dated baseline and must be locked before implementation claims are made.
-- Local tooling check found Node.js, npm, Corepack, uv, Docker, and Make available; pnpm is not installed directly, and the local Python is older than the target runtime.
+- Next.js web app shell renders the owner workspace dashboard.
+- FastAPI exposes health, session, and document-list endpoints.
+- SQLAlchemy and Alembic define the Phase 1 base schema.
+- Local owner authentication uses server-side sessions, HttpOnly SameSite cookies, CSRF tokens, and session revocation.
+- Docker Compose defines PostgreSQL with pgvector, Redis, API, worker, web, and optional storage, scan, and observability profiles.
+- CI is configured for frozen installs, formatting, linting, type checks, tests, build, migration verification, security checks, dependency audit, and container builds.
+
+## Local Development
+
+Install dependencies from lockfiles:
+
+```bash
+make setup
+```
+
+Start the local Docker stack in the background:
+
+```bash
+make dev
+```
+
+The default host ports are `3000` for web, `8000` for API, `15432` for PostgreSQL, and `16379` for Redis.
+
+Apply migrations and seed the local owner when running services outside Docker:
+
+```bash
+make migrate
+make seed
+```
+
+Local owner credentials are intentionally development-only:
+
+```text
+Email: owner@loomi.local
+Password: loomi-local-owner-password
+```
+
+Production rejects the default local password and insecure cookie settings.
+
+## Verification
+
+Run the Phase 1 gate:
+
+```bash
+make format
+make lint
+make typecheck
+make test
+make security
+corepack pnpm build
+docker compose -f infra/docker/compose.yml config
+```
 
 ## Documentation
 
@@ -37,8 +85,8 @@ flowchart LR
 
 ## Phase Checklist
 
-1. Discovery and design.
-2. Foundation.
+1. Discovery and design: complete.
+2. Foundation: implemented.
 3. Knowledge ingestion.
 4. Search and cited chat.
 5. Agent runtime.

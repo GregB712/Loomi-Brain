@@ -7,8 +7,8 @@
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit",
-    "test": "tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@loomi/ui": "workspace:*",

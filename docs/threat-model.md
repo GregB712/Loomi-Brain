@@ -12,6 +12,8 @@ This threat model covers the initial single-owner application: web app, API, wor
 
 This document remains the baseline design threat model. Phase 1 now has authentication and schema code, while ingestion, retrieval, agents, MCP, skills, and observability still require code-level security reviews as those surfaces land.
 
+Phase 2 implements the first upload and ingestion surface. Uploaded files, filenames, extracted text, parser metadata, previews, chunks, and embeddings are untrusted. Implemented controls include owner-scoped routes, CSRF on upload/retry/reindex/cancel/delete/tag mutations, stream size limits, extension and content MIME allowlists, dangerous extension rejection, random private object keys, filename display normalization, fake/required scanner modes, parser output limits, Office archive limits, PDF page limits, image pixel limits, deterministic fake OCR/embeddings, escaped previews, no ordinary logging of document text/binaries, and complete source/chunk/embedding deletion for document delete.
+
 Phase 1 adds enough application code for the authentication boundary to be reviewed and tested. The implemented controls are:
 
 - Public registration is absent.
@@ -32,6 +34,15 @@ Residual Phase 1 risks:
 - Rate limiting is not implemented until hardening.
 - Upload, parsing, model, MCP, and skill attack surfaces are still design-only because those features start in later phases.
 - Optional object storage, malware scanning, and observability services are present as local Compose profiles but are not yet integrated into request handling.
+
+Residual Phase 2 risks:
+
+- Background processing is API-process background tasks, not a durable Redis worker claim loop yet.
+- Local fake scanner is not malware protection; production must require a real scanner adapter before remote use.
+- Builtin extraction is intentionally narrow. Docling is pinned as an optional adapter but not the default until worker isolation and resource controls are hardened.
+- Rate limiting and quota enforcement are still limited to size/count bounds.
+- URL ingestion is deferred because SSRF protections are not implemented.
+- Embeddings are JSON vectors with deterministic fake values, not pgvector-native production embeddings.
 
 ## Trust Boundaries
 
@@ -121,6 +132,7 @@ Tests:
 - Malformed skill manifests fail.
 - Forbidden template features fail.
 - Retried side-effecting requests do not duplicate records.
+- Upload retry/re-index idempotency keys return the existing job instead of duplicating work.
 
 ### Repudiation
 
@@ -197,6 +209,7 @@ Tests:
 - Rate-limited endpoints return 429 with retry hints.
 - Model stream cancellation persists a canceled state.
 - MCP response-size cap truncates and audits.
+- Unsupported executable uploads, MIME mismatches, malformed Office archives, scanner rejection, scanner unavailable in required mode, and oversized uploads fail safely.
 
 ### Elevation Of Privilege
 
@@ -238,6 +251,8 @@ Tests:
 - No long-lived auth tokens in localStorage.
 
 Phase 1 security tests cover unauthenticated document access, owner login, bad-password rejection, CSRF rejection on logout, logout revocation, explicit session revocation, and authenticated owner-scoped document listing.
+
+Phase 2 security tests cover unauthenticated upload, missing CSRF, path traversal filename neutralization, executable/unsupported upload rejection, MIME mismatch rejection, malformed Office rejection, malicious HTML preview sanitization, prompt-injection text treated as data, scanner rejection, required scanner unavailable fail-closed behavior, oversized upload rejection, idempotent re-index, and deletion removing derived data.
 
 ### Upload And Parsing
 

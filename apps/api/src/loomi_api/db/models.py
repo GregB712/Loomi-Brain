@@ -90,6 +90,9 @@ class DocumentVersion(IdMixin, TimestampMixin, Base):
     object_key: Mapped[str] = mapped_column(String(512))
     content_sha256: Mapped[str] = mapped_column(String(64), index=True)
     media_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    storage_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    parser_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
     extraction_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
@@ -97,13 +100,24 @@ class IngestionJob(IdMixin, TimestampMixin, Base):
     __tablename__ = "ingestion_jobs"
 
     document_id: Mapped[str] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
+    document_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="CASCADE"), nullable=True
+    )
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     status: Mapped[str] = mapped_column(String(40), default="queued")
     stage: Mapped[str] = mapped_column(String(80), default="created")
+    progress_percent: Mapped[int] = mapped_column(Integer, default=0)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     error_code: Mapped[str | None] = mapped_column(String(120), nullable=True)
     error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    stage_log: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (Index("ix_ingestion_jobs_owner_status", "owner_user_id", "status"),)
 
@@ -117,10 +131,22 @@ class Chunk(IdMixin, TimestampMixin, Base):
     )
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     ordinal: Mapped[int] = mapped_column(Integer)
+    stable_id: Mapped[str] = mapped_column(String(64))
     text: Mapped[str] = mapped_column(Text)
+    text_sha256: Mapped[str] = mapped_column(String(64))
+    token_count: Mapped[int] = mapped_column(Integer, default=0)
+    chunker_version: Mapped[str] = mapped_column(String(80), default="phase2-v1")
     provenance: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
-    __table_args__ = (Index("ix_chunks_document_ordinal", "document_id", "ordinal"),)
+    __table_args__ = (
+        Index("ix_chunks_document_ordinal", "document_id", "ordinal"),
+        Index(
+            "ix_chunks_version_stable_id",
+            "document_version_id",
+            "stable_id",
+            unique=True,
+        ),
+    )
 
 
 class Embedding(IdMixin, TimestampMixin, Base):
@@ -131,6 +157,8 @@ class Embedding(IdMixin, TimestampMixin, Base):
     provider: Mapped[str] = mapped_column(String(80))
     model: Mapped[str] = mapped_column(String(160))
     dimensions: Mapped[int] = mapped_column(Integer)
+    embedding_version: Mapped[str] = mapped_column(String(80), default="phase2-v1")
+    vector_checksum: Mapped[str] = mapped_column(String(64))
     vector_json: Mapped[list[float]] = mapped_column(JSON, default=list)
 
 
@@ -158,6 +186,8 @@ class Collection(IdMixin, TimestampMixin, Base):
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (Index("ix_collections_owner_name", "owner_user_id", "name", unique=True),)
 
 
 class CollectionDocument(IdMixin, TimestampMixin, Base):

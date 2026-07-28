@@ -20,6 +20,16 @@ Phase 1 now contains a runnable monorepo foundation:
 - Docker Compose services for PostgreSQL with pgvector, Redis, API, worker, web, and optional storage, malware scan, and observability profiles.
 - CI workflow for frozen installs, formatting, linting, type checks, tests, frontend build, PostgreSQL migration check, local security checks, dependency audit, and container builds.
 
+Phase 2 adds the first complete knowledge ingestion slice:
+
+- Owner-scoped document upload, list, detail, preview, retry, re-index, delete, tag, and ingestion-job APIs.
+- Private local object storage adapter using random server-generated object keys.
+- Upload size/count limits, content MIME detection, extension allowlist, safe display filename normalization, fake/required scanner modes, parser output limits, Office archive limits, PDF page limits, and image pixel limits.
+- Parser protocols and builtin adapters for PDF, DOCX, PPTX, Markdown, text, HTML, CSV, and common OCR image formats. Docling is pinned as an optional adapter behind the same interface.
+- Deterministic chunker, fake embedding provider, stable chunk IDs, JSON vector persistence, and provenance metadata.
+- Knowledge Library web route at `/knowledge` using the contracts package typed client.
+- OpenAPI snapshot and TypeScript API client in `packages/contracts`.
+
 ## Architecture Overview
 
 Loomi-Brain uses a monorepo with separate web, API, worker, shared UI, shared contracts, infrastructure, tests, scripts, and documentation modules.
@@ -195,6 +205,8 @@ The first pgvector index will use cosine distance unless evaluation data indicat
 
 Phase 1 enables the pgvector extension on PostgreSQL but stores embedding vectors as JSON until the ingestion phase defines the embedding dimensions and index strategy. That keeps the initial migration runnable while avoiding a premature vector schema.
 
+Phase 2 persists deterministic embedding vectors as JSON with dimension/model/version/checksum metadata. This keeps local tests deterministic and avoids mixing vector dimensions before retrieval evaluation defines the pgvector schema. The migration adds ingestion progress, timing, cancellation, stage logs, chunk stable IDs, text hashes, chunker version, embedding version, vector checksum, parser metadata, and collection uniqueness indexes.
+
 ## Ingestion Pipeline
 
 ```mermaid
@@ -238,6 +250,8 @@ Pipeline stages:
 12. Persist provenance.
 13. Mark ingestion status.
 14. Emit metrics and trace events.
+
+Phase 2 implements file upload ingestion only. URL import remains out of scope until the SSRF controls in the threat model are implemented. The current background execution path is FastAPI background tasks: requests return accepted job IDs and the processing stages update persistent job state. A Redis-backed worker claim loop remains the intended durable queue path for later hardening.
 
 ## Retrieval And Cited Answer Flow
 

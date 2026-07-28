@@ -13,6 +13,9 @@ importers:
 
   apps/web:
     dependencies:
+      "@loomi/contracts":
+        specifier: workspace:*
+        version: link:../../packages/contracts
       "@loomi/ui":
         specifier: workspace:*
         version: link:../../packages/ui
@@ -56,6 +59,12 @@ importers:
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/contracts:
+    devDependencies:
       typescript:
         specifier: 6.0.3
         version: 6.0.3

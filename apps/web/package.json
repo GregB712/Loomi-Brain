@@ -11,6 +11,7 @@
     "test": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@loomi/contracts": "workspace:*",
     "@loomi/ui": "workspace:*",
     "@tanstack/react-query": "5.101.4",
     "lucide-react": "1.27.0",

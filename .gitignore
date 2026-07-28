@@ -21,3 +21,4 @@ playwright-report/
 test-results/
 *.log
 infra/docker/data/
+var/

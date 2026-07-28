@@ -18,15 +18,15 @@ import {
 import { MetricCard, StatusPill } from "@loomi/ui";
 
 const navigation = [
-  { label: "Home", icon: Home, current: true },
-  { label: "Chat", icon: MessageSquare },
-  { label: "Knowledge", icon: Library },
-  { label: "Search", icon: Search },
-  { label: "Runs", icon: Workflow },
-  { label: "Skills", icon: Sparkles },
-  { label: "MCP", icon: Plug },
-  { label: "Observability", icon: Activity },
-  { label: "Settings", icon: KeyRound },
+  { label: "Home", icon: Home, current: true, href: "/" },
+  { label: "Chat", icon: MessageSquare, href: "#" },
+  { label: "Knowledge", icon: Library, href: "/knowledge" },
+  { label: "Search", icon: Search, href: "#" },
+  { label: "Runs", icon: Workflow, href: "#" },
+  { label: "Skills", icon: Sparkles, href: "#" },
+  { label: "MCP", icon: Plug, href: "#" },
+  { label: "Observability", icon: Activity, href: "#" },
+  { label: "Settings", icon: KeyRound, href: "#" },
 ];
 
 const pipeline = [
@@ -39,8 +39,8 @@ const pipeline = [
   {
     title: "Knowledge ingestion",
     meta: "Upload, scan, parse, chunk, embed, index",
-    tone: "neutral" as const,
-    status: "Queued",
+    tone: "good" as const,
+    status: "Ready",
   },
   {
     title: "Cited chat",
@@ -99,7 +99,7 @@ export default function DashboardPage() {
                 <li key={item.label}>
                   <a
                     className="nav-link"
-                    href="#"
+                    href={item.href}
                     aria-current={item.current ? "page" : undefined}
                   >
                     <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
@@ -129,8 +129,8 @@ export default function DashboardPage() {
             aria-label="Environment status"
           >
             <p className="panel-label">Phase</p>
-            <p className="panel-value">Foundation</p>
-            <StatusPill tone="good">Phase 1</StatusPill>
+            <p className="panel-value">Ingestion</p>
+            <StatusPill tone="good">Phase 2</StatusPill>
           </section>
         </header>
 
@@ -139,7 +139,7 @@ export default function DashboardPage() {
             <MetricCard
               label="Documents"
               value="0"
-              detail="Synthetic fixtures land in Phase 2"
+              detail="Owner uploads are available in Knowledge"
               icon={<FileText size={21} strokeWidth={1.8} />}
             />
             <MetricCard

@@ -25,3 +25,7 @@ Use Docling as the primary document extraction adapter where it supports the med
 - The project benefits from an actively maintained extraction ecosystem.
 - The worker must isolate and monitor parser resource use.
 - Evaluation fixtures must catch silent loss of tables, headings, page references, and citations.
+
+## Phase 2 Update
+
+Phase 2 pins Docling as an optional API extra and keeps it behind `DocumentParser`. The default local/test path uses narrow builtin adapters because the durable worker isolation, runtime caps, and full scanner integration are not hardened yet. This preserves the ADR boundary without forcing the full Docling stack into the default demo path.

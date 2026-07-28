@@ -10,10 +10,10 @@
     "dev": "corepack pnpm --filter @loomi/web dev",
     "build": "corepack pnpm --filter @loomi/web build",
     "lint": "corepack pnpm --filter @loomi/web lint",
-    "typecheck": "corepack pnpm --filter @loomi/web typecheck && corepack pnpm --filter @loomi/ui typecheck",
+    "typecheck": "corepack pnpm --filter @loomi/contracts typecheck && corepack pnpm --filter @loomi/web typecheck && corepack pnpm --filter @loomi/ui typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "corepack pnpm --filter @loomi/web test && corepack pnpm --filter @loomi/ui typecheck"
+    "test": "corepack pnpm --filter @loomi/contracts typecheck && corepack pnpm --filter @loomi/web test && corepack pnpm --filter @loomi/ui typecheck"
   },
   "devDependencies": {
     "prettier": "3.9.6"

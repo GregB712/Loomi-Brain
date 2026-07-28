@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from loomi_api import __version__
-from loomi_api.api import auth, documents, health
+from loomi_api.api import auth, documents, health, ingestion_jobs
 from loomi_api.config import Settings, get_settings
 from loomi_api.db.session import create_engine, create_sessionmaker
 from loomi_api.logging import configure_logging
@@ -52,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=[
             "authorization",
             "content-type",
+            "idempotency-key",
             resolved_settings.csrf_header_name,
             resolved_settings.request_id_header,
             resolved_settings.trace_id_header,
@@ -62,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(documents.router)
+    app.include_router(ingestion_jobs.router)
 
     return app
 

@@ -93,6 +93,8 @@ Phase 1 implementation notes:
 
 ## Phase 2: Knowledge Ingestion
 
+Status: implemented.
+
 Goal: synthetic files can be uploaded, scanned, extracted, chunked, embedded through mock/local providers, indexed, previewed, retried, re-indexed, and deleted.
 
 Work items:
@@ -115,6 +117,32 @@ Acceptance criteria:
 - Duplicate content is detected.
 - Deletion removes source, chunks, embeddings, and derived assets.
 - MIME mismatch is rejected or quarantined.
+
+Verification commands:
+
+- `make setup`
+- `make lint`
+- `make typecheck`
+- `make test`
+- `make security`
+- `corepack pnpm build`
+- `corepack pnpm format:check`
+- `corepack pnpm peers check`
+- `docker compose -f infra/docker/compose.yml config`
+- `make dev` plus browser upload-to-preview verification when Docker is available
+
+Phase 2 implementation notes:
+
+- The API now exposes owner-scoped upload, list, detail, preview, retry, re-index, delete, tag, job-detail, and job-cancel endpoints under `/api/v1`.
+- Mutating document endpoints reuse the Phase 1 session cookie and CSRF boundary. Callers never provide `owner_user_id`.
+- Uploads stream into private local object storage with random keys under `LOOMI_STORAGE_ROOT`; display filenames are normalized and never used as paths.
+- The default local parser stack supports PDF, DOCX, PPTX, Markdown, text, HTML, CSV, PNG, JPEG, TIFF, and WEBP through narrow adapters behind `DocumentParser`/`OCRProvider` protocols.
+- `docling==2.115.0` is pinned as an optional API extra and remains behind the parser interface. The default extractor is builtin until worker isolation/resource controls are hardened further.
+- Local/test scanner mode is fake and deterministic. Production configuration fails closed unless `LOOMI_SCANNER_REQUIRED=true`.
+- Chunking uses ADR 0007's deterministic character-window strategy with stable chunk IDs, provenance, and version metadata.
+- Embeddings use deterministic fake vectors with a fixed dimension and model name. pgvector-native indexes remain deferred until retrieval evaluation defines the production vector dimension and distance strategy.
+- Background processing uses FastAPI background tasks for this slice. Redis-backed durable worker claiming remains a hardening item for later phases.
+- URL ingestion is explicitly deferred until SSRF protections are implemented and tested.
 
 ## Phase 3: Search And Cited Chat
 

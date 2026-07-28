@@ -20,6 +20,7 @@ def api_settings(tmp_path: Path) -> Settings:
     return Settings(
         environment="test",
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'loomi-test.db'}",
+        storage_root=tmp_path / "objects",
         owner_email="owner@example.test",
         owner_password=SecretStr("phase1-owner-password"),  # noqa: S106
         session_cookie_secure=False,

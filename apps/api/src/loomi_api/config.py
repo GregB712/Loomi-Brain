@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import Field, SecretStr, model_validator
@@ -33,6 +34,23 @@ class Settings(BaseSettings):
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     session_ttl_minutes: int = 60 * 24 * 7
 
+    storage_root: Path = Path("var/private-objects")
+    max_upload_bytes: int = 15 * 1024 * 1024
+    max_upload_files: int = 8
+    max_parser_output_chars: int = 250_000
+    max_archive_entries: int = 200
+    max_archive_uncompressed_bytes: int = 40 * 1024 * 1024
+    max_pdf_pages: int = 80
+    max_image_pixels: int = 24_000_000
+    max_chunks_per_document: int = 500
+    chunk_target_chars: int = 1_400
+    chunk_overlap_chars: int = 180
+    embedding_dimensions: int = 16
+    embedding_model: str = "loomi-deterministic-embedding-v1"
+    extraction_engine: Literal["builtin", "docling"] = "builtin"
+    scanner_mode: Literal["fake-clean", "fake-reject", "unavailable"] = "fake-clean"
+    scanner_required: bool = False
+
     @model_validator(mode="after")
     def validate_auth_settings(self) -> Self:
         if self.environment == "production":
@@ -42,6 +60,8 @@ class Settings(BaseSettings):
                 raise ValueError("LOOMI_SESSION_COOKIE_SECURE must be true in production")
             if "*" in self.cors_origins:
                 raise ValueError("LOOMI_CORS_ORIGINS must not contain '*' in production")
+            if not self.scanner_required:
+                raise ValueError("LOOMI_SCANNER_REQUIRED must be true in production")
         return self
 
 

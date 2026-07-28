@@ -35,6 +35,9 @@ services:
       LOOMI_CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
       LOOMI_OWNER_EMAIL: owner@loomi.local
       LOOMI_OWNER_PASSWORD: loomi-local-owner-password
+      LOOMI_STORAGE_ROOT: /app/apps/api/var/private-objects
+      LOOMI_SCANNER_MODE: fake-clean
+      LOOMI_SCANNER_REQUIRED: "false"
     command:
       - sh
       - -c
@@ -60,6 +63,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - loomi-api-objects:/app/apps/api/var/private-objects
 
   worker:
     build:
@@ -117,3 +122,4 @@ services:
 volumes:
   loomi-postgres:
   loomi-object-store:
+  loomi-api-objects:

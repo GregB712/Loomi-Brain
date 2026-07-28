@@ -1,5 +1,5 @@
 # Contracts
 
-Generated API contracts will live here after the FastAPI OpenAPI schema is available.
+This package contains the Phase 2 TypeScript API types and credentialed browser client used by the web app.
 
-The backend OpenAPI document remains the source of truth. TypeScript clients generated from it must not be edited by hand.
+The FastAPI OpenAPI document remains the source of truth. `openapi.json` should be regenerated from `loomi_api.main:create_app` whenever backend routes change, and the exported TypeScript types/client must stay aligned with that schema.

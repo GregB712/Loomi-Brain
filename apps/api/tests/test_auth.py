@@ -59,7 +59,8 @@ def test_authenticated_document_list_is_owner_scoped(seeded_client: TestClient) 
     response = seeded_client.get("/api/v1/documents")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
+    assert response.json()["total"] == 0
 
 
 def test_owner_can_revoke_current_session(seeded_client: TestClient) -> None:

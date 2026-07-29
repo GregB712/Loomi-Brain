@@ -358,6 +358,112 @@ export type ProviderHealth = {
   error_code: string | null;
 };
 
+export type ObservabilityStatus = {
+  enabled: boolean;
+  exporter: string;
+  local_only: boolean;
+  content_capture: string;
+  sample_rate: number;
+  retention_days: number;
+  sampling_preview: boolean;
+  latest_exporter_status: string | null;
+  latest_exporter_error: string | null;
+  prompt_registry: Array<Record<string, unknown>>;
+};
+
+export type ObservabilitySummary = {
+  range: { start: string; end: string };
+  telemetry: {
+    enabled: boolean;
+    exporter: string;
+    local_only: boolean;
+    content_capture: string;
+    sample_rate: number;
+    retention_days: number;
+    spans: number;
+    error_spans: number;
+    latency_p50_ms: number;
+    latency_p95_ms: number;
+    exporter_status: Record<string, number>;
+  };
+  runs: {
+    total: number;
+    by_state: Record<string, number>;
+    success_rate: number;
+    error_rate: number;
+    recent: ObservabilityRun[];
+  };
+  model_usage: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    estimated_cost_usd: number;
+  };
+  providers: ObservabilityProviderBreakdown[];
+  retrieval: ObservabilityRetrievalSummary;
+  ingestion: Record<string, unknown>;
+  tools: Record<string, unknown>;
+  approvals: Record<string, unknown>;
+  evaluation: {
+    passed: boolean;
+    regressions: Array<Record<string, unknown>>;
+    baseline_name: string;
+  };
+};
+
+export type ObservabilityRun = {
+  id: string;
+  run_kind: string;
+  state: string;
+  status_reason: string | null;
+  provider: string | null;
+  model: string | null;
+  usage: Record<string, unknown>;
+  latency_ms: number | null;
+  trace_id: string | null;
+  trace_url: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export type ObservabilityProviderBreakdown = {
+  provider: string;
+  model: string;
+  runs: number;
+  tokens: number;
+  estimated_cost_usd: number;
+  latency_p95_ms: number;
+};
+
+export type ObservabilityRetrievalSummary = {
+  by_mode: Array<{
+    mode: string;
+    runs: number;
+    total_candidates: number;
+    selected_context: number;
+    warnings: number;
+    avg_candidates: number;
+    avg_selected_context: number;
+    latency_p95_ms: number;
+  }>;
+};
+
+export type ObservabilityRetrievalResponse = {
+  summary: ObservabilityRetrievalSummary;
+  recent_spans: Array<Record<string, unknown>>;
+};
+
+export type ObservabilityEvaluationHistory = {
+  current_synthetic_report: Record<string, unknown>;
+  items: Array<Record<string, unknown>>;
+};
+
+export type ObservabilityFeedbackSummary = {
+  total: number;
+  by_rating: Record<string, number>;
+  items: Array<Record<string, unknown>>;
+};
+
 export type SourceChunk = {
   chunk_id: string;
   document_id: string;
@@ -655,6 +761,48 @@ export function createLoomiClient(apiBase: string) {
     },
     providerHealth() {
       return request<ProviderHealth[]>(apiBase, "/api/v1/providers/health");
+    },
+    observabilityStatus() {
+      return request<ObservabilityStatus>(
+        apiBase,
+        "/api/v1/observability/status",
+      );
+    },
+    observabilitySummary(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<ObservabilitySummary>(
+        apiBase,
+        `/api/v1/observability/summary${query ? `?${query}` : ""}`,
+      );
+    },
+    observabilityRuns(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<{
+        items: ObservabilityRun[];
+        limit: number;
+        offset: number;
+      }>(apiBase, `/api/v1/observability/runs${query ? `?${query}` : ""}`);
+    },
+    observabilityRetrieval(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<ObservabilityRetrievalResponse>(
+        apiBase,
+        `/api/v1/observability/retrieval${query ? `?${query}` : ""}`,
+      );
+    },
+    observabilityEvaluations(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<ObservabilityEvaluationHistory>(
+        apiBase,
+        `/api/v1/observability/evaluations${query ? `?${query}` : ""}`,
+      );
+    },
+    observabilityFeedback(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<ObservabilityFeedbackSummary>(
+        apiBase,
+        `/api/v1/observability/feedback${query ? `?${query}` : ""}`,
+      );
     },
     getSourceChunk(chunkId: string) {
       return request<SourceChunk>(apiBase, `/api/v1/sources/chunks/${chunkId}`);

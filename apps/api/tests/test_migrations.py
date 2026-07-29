@@ -42,6 +42,7 @@ def test_initial_migration_creates_phase1_tables(tmp_path: Path) -> None:
         "mcp_servers",
         "mcp_capabilities",
         "audit_events",
+        "telemetry_spans",
         "evaluation_datasets",
         "evaluation_runs",
         "evaluation_results",

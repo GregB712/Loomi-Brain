@@ -70,6 +70,24 @@ Residual Phase 4 risks:
   feature exists.
 - Recovery after restart is event/history based; there is no background resume worker yet.
 
+Phase 5 implements the first observability and evaluation surface. Telemetry spans,
+trace links, prompt metadata, usage/cost reports, retrieval diagnostics, evaluation
+reports, and owner feedback metadata are owner-only. Implemented controls include
+allowlist-based telemetry attributes, header/query redaction helpers, secret-pattern
+redaction, maximum field sizes, disabled/local-only/exporter modes, production content
+capture rejection, production sampling caps, prompt ID/version recording instead of
+prompt text, best-effort exporter failure handling, bounded date ranges, pagination, and
+owner-only observability endpoints.
+
+Residual Phase 5 risks:
+
+- Local JSONL retention is guidance-based; automated pruning is deferred.
+- OpenTelemetry SDK and Langfuse SDK dependencies remain optional; the current exporter
+  emits OpenTelemetry-shaped payloads and can post to OTLP/Langfuse endpoints when
+  configured.
+- The owner-facing dashboard summarizes product-level signals, not every vendor trace
+  feature.
+
 ## Trust Boundaries
 
 ```mermaid
@@ -197,6 +215,8 @@ Controls:
 - Redact secrets and sensitive headers before logs and telemetry export.
 - Make prompt/response capture opt-in by environment.
 - Never export document binaries or unrestricted personal text to telemetry.
+- Use telemetry allowlists, field-size limits, secret-pattern redaction, and production
+  content-capture rejection before persistence or export.
 - Enforce owner checks before loading private data.
 - Render Markdown with raw HTML disabled and sanitized links.
 - Validate citations against selected context before returning a grounded answer.

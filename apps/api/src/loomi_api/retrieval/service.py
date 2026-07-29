@@ -17,6 +17,7 @@ from loomi_api.db.models import (
     Tag,
 )
 from loomi_api.ingestion.embeddings import DeterministicEmbeddingProvider
+from loomi_api.observability.telemetry import elapsed_ms, record_span, start_timer
 from loomi_api.retrieval.contracts import (
     ContextItem,
     RetrievalQuery,
@@ -257,6 +258,7 @@ class TokenBudgetContextAssembler:
 
 class RetrievalService:
     def __init__(self, settings: Settings, config: RetrievalConfig | None = None) -> None:
+        self.settings = settings
         self.config = config or RetrievalConfig()
         self.lexical = LexicalRetriever(self.config)
         self.vector = VectorRetriever(settings, self.config)
@@ -269,32 +271,131 @@ class RetrievalService:
         session: AsyncSession,
         query: RetrievalQuery,
     ) -> RetrievalResult:
-        if query.mode == "lexical":
-            candidates = await self.lexical.retrieve(session, query)
-        elif query.mode == "semantic":
-            candidates = await self.vector.retrieve(session, query)
-        else:
-            candidates = await self.hybrid.retrieve(session, query)
-        candidates = await self.reranker.rerank(query.query, candidates)
-        filtered = tuple(
-            candidate for candidate in candidates if candidate.score >= query.min_score
-        )
-        paged = filtered[query.offset : query.offset + query.limit]
-        context = self.context_assembler.assemble(query=query, candidates=filtered)
-        warnings: list[str] = []
-        if not filtered:
-            warnings.append("No chunks met the relevance threshold.")
-        return RetrievalResult(
-            mode=query.mode,
-            query=query.query,
-            candidates=paged,
-            selected_context=context,
-            total=len(filtered),
-            warnings=tuple(warnings),
-            debug={
-                "vector_metric": "cosine",
-                "rank_fusion": "reciprocal_rank_fusion" if query.mode == "hybrid" else None,
-                "candidate_limit": self.config.candidate_limit,
+        started = start_timer()
+        try:
+            retrieve_started = start_timer()
+            if query.mode == "lexical":
+                candidates = await self.lexical.retrieve(session, query)
+            elif query.mode == "semantic":
+                candidates = await self.vector.retrieve(session, query)
+            else:
+                candidates = await self.hybrid.retrieve(session, query)
+            await self._record_retrieval_span(
+                session,
+                query,
+                name="loomi.retrieval.retrieve",
+                duration_ms=elapsed_ms(retrieve_started),
+                attributes={"candidate_count": len(candidates)},
+            )
+
+            rerank_started = start_timer()
+            candidates = await self.reranker.rerank(query.query, candidates)
+            await self._record_retrieval_span(
+                session,
+                query,
+                name="loomi.retrieval.rerank",
+                duration_ms=elapsed_ms(rerank_started),
+                attributes={"candidate_count": len(candidates)},
+            )
+
+            filtered = tuple(
+                candidate for candidate in candidates if candidate.score >= query.min_score
+            )
+            paged = filtered[query.offset : query.offset + query.limit]
+
+            context_started = start_timer()
+            context = self.context_assembler.assemble(query=query, candidates=filtered)
+            await self._record_retrieval_span(
+                session,
+                query,
+                name="loomi.retrieval.context_assembly",
+                duration_ms=elapsed_ms(context_started),
+                attributes={
+                    "candidate_count": len(filtered),
+                    "selected_context_count": len(context),
+                },
+            )
+
+            warnings: list[str] = []
+            if not filtered:
+                warnings.append("No chunks met the relevance threshold.")
+            result = RetrievalResult(
+                mode=query.mode,
+                query=query.query,
+                candidates=paged,
+                selected_context=context,
+                total=len(filtered),
+                warnings=tuple(warnings),
+                debug={
+                    "vector_metric": "cosine",
+                    "rank_fusion": "reciprocal_rank_fusion" if query.mode == "hybrid" else None,
+                    "candidate_limit": self.config.candidate_limit,
+                },
+            )
+            await self._record_retrieval_span(
+                session,
+                query,
+                name="loomi.retrieval.search",
+                duration_ms=elapsed_ms(started),
+                attributes={
+                    "candidate_count": len(paged),
+                    "selected_context_count": len(context),
+                    "total": result.total,
+                    "warning_count": len(warnings),
+                },
+            )
+            return result
+        except RetrievalError:
+            await self._record_retrieval_span(
+                session,
+                query,
+                name="loomi.retrieval.search",
+                status="error",
+                error_code="retrieval_invalid_query",
+                duration_ms=elapsed_ms(started),
+            )
+            raise
+        except Exception:
+            await self._record_retrieval_span(
+                session,
+                query,
+                name="loomi.retrieval.search",
+                status="error",
+                error_code="retrieval_failed",
+                duration_ms=elapsed_ms(started),
+            )
+            raise
+
+    async def _record_retrieval_span(
+        self,
+        session: AsyncSession,
+        query: RetrievalQuery,
+        *,
+        name: str,
+        duration_ms: int,
+        status: str = "ok",
+        error_code: str | None = None,
+        attributes: dict[str, object] | None = None,
+    ) -> None:
+        await record_span(
+            session,
+            self.settings,
+            name=name,
+            component="retrieval",
+            trace_id=query.trace_id,
+            owner_user_id=query.owner_user_id,
+            status=status,
+            duration_ms=duration_ms,
+            error_code=error_code,
+            attributes={
+                "mode": query.mode,
+                "query_length": len(query.query),
+                "limit": query.limit,
+                "offset": query.offset,
+                "min_score": query.min_score,
+                "request_id": query.request_id,
+                "trace_id": query.trace_id,
+                **(attributes or {}),
             },
         )
 

@@ -48,6 +48,7 @@ from loomi_api.ingestion.state import (
     validate_transition,
 )
 from loomi_api.ingestion.storage import LocalObjectStore
+from loomi_api.observability.telemetry import record_span
 
 logger = structlog.get_logger(__name__)
 
@@ -78,6 +79,8 @@ async def accept_upload(
     owner_user_id: str,
     upload: UploadFile,
     idempotency_key: str | None,
+    request_id: str | None,
+    trace_id: str | None,
 ) -> AcceptedUpload:
     display_filename = safe_display_filename(upload.filename)
     store = LocalObjectStore(settings.storage_root)
@@ -147,9 +150,31 @@ async def accept_upload(
             stage=QUEUED,
             idempotency_key=idempotency_key or f"upload:{temporary.sha256}",
             stage_log=[],
-            metrics={"upload_size_bytes": temporary.size_bytes},
+            metrics={
+                "upload_size_bytes": temporary.size_bytes,
+                "request_id": request_id,
+                "trace_id": trace_id,
+            },
         )
         session.add(job)
+        await session.flush()
+        await record_span(
+            session,
+            settings,
+            name="loomi.ingestion.job_queued",
+            component="ingestion",
+            trace_id=trace_id,
+            owner_user_id=owner_user_id,
+            attributes={
+                "document_id": document.id,
+                "document_version_id": version.id,
+                "job_id": job.id,
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "status": QUEUED,
+                "stage": QUEUED,
+            },
+        )
         await session.commit()
         logger.info(
             "ingestion.upload_accepted",
@@ -183,27 +208,27 @@ async def process_ingestion_job(
         started = perf_counter()
         job, document, version = await _load_job_bundle(session, job_id)
         try:
-            await _transition(session, job, document, VALIDATING)
-            await _raise_if_cancelled(session, job, document)
+            await _transition(session, job, document, VALIDATING, settings=settings)
+            await _raise_if_cancelled(session, job, document, settings=settings)
 
             store = LocalObjectStore(settings.storage_root)
             object_path = store.path_for_key(version.object_key)
             if not object_path.exists():
                 raise IngestionError("source_missing", "The stored source object is missing.")
 
-            await _transition(session, job, document, SCANNING)
+            await _transition(session, job, document, SCANNING, settings=settings)
             await ConfiguredMalwareScanner(settings).scan(object_path)
-            await _raise_if_cancelled(session, job, document)
+            await _raise_if_cancelled(session, job, document, settings=settings)
 
-            await _transition(session, job, document, EXTRACTING)
+            await _transition(session, job, document, EXTRACTING, settings=settings)
             parsed = await ParserRegistry(settings).parse(
                 object_path,
                 version.media_type or "application/octet-stream",
                 str(version.extraction_metadata.get("display_filename", document.title)),
             )
-            await _raise_if_cancelled(session, job, document)
+            await _raise_if_cancelled(session, job, document, settings=settings)
 
-            await _transition(session, job, document, NORMALIZING)
+            await _transition(session, job, document, NORMALIZING, settings=settings)
             version.parser_name = parsed.parser_name
             version.parser_version = parsed.parser_version
             version.extraction_metadata = {
@@ -215,7 +240,7 @@ async def process_ingestion_job(
                 "ingested_at": utc_now().isoformat(),
             }
 
-            await _transition(session, job, document, CHUNKING)
+            await _transition(session, job, document, CHUNKING, settings=settings)
             chunks = DeterministicChunker(
                 ChunkingConfig(
                     target_chars=settings.chunk_target_chars,
@@ -229,16 +254,16 @@ async def process_ingestion_job(
                 source_checksum=version.content_sha256,
                 parsed=parsed,
             )
-            await _raise_if_cancelled(session, job, document)
+            await _raise_if_cancelled(session, job, document, settings=settings)
 
-            await _transition(session, job, document, EMBEDDING)
+            await _transition(session, job, document, EMBEDDING, settings=settings)
             vectors = await DeterministicEmbeddingProvider(
                 model=settings.embedding_model,
                 dimensions=settings.embedding_dimensions,
             ).embed([chunk.text for chunk in chunks])
-            await _raise_if_cancelled(session, job, document)
+            await _raise_if_cancelled(session, job, document, settings=settings)
 
-            await _transition(session, job, document, INDEXING)
+            await _transition(session, job, document, INDEXING, settings=settings)
             await _replace_indexes(session, document, version, chunks, vectors)
             elapsed_ms = round((perf_counter() - started) * 1000)
             job.metrics = {
@@ -249,7 +274,7 @@ async def process_ingestion_job(
                 "embedding_model": settings.embedding_model,
                 "elapsed_ms": elapsed_ms,
             }
-            await _transition(session, job, document, COMPLETED)
+            await _transition(session, job, document, COMPLETED, settings=settings)
             logger.info(
                 "ingestion.completed",
                 owner_user_id=document.owner_user_id,
@@ -268,11 +293,12 @@ async def process_ingestion_job(
                     job_id=job.id,
                 )
                 return
-            await _fail_job(session, job, document, exc.code, exc.detail)
+            await _fail_job(session, settings, job, document, exc.code, exc.detail)
         except Exception:  # pragma: no cover - defensive safe error boundary
             logger.exception("ingestion.unhandled_failure", job_id=job.id, document_id=document.id)
             await _fail_job(
                 session,
+                settings,
                 job,
                 document,
                 "ingestion_failed",
@@ -286,6 +312,8 @@ async def retry_document(
     owner_user_id: str,
     document_id: str,
     idempotency_key: str | None,
+    request_id: str | None,
+    trace_id: str | None,
 ) -> IngestionJob:
     document, version = await _load_owner_document_and_latest_version(
         session,
@@ -311,6 +339,8 @@ async def retry_document(
         version=version,
         idempotency_key=idempotency_key,
         reason="retry",
+        request_id=request_id,
+        trace_id=trace_id,
     )
 
 
@@ -320,6 +350,8 @@ async def reindex_document(
     owner_user_id: str,
     document_id: str,
     idempotency_key: str | None,
+    request_id: str | None,
+    trace_id: str | None,
 ) -> IngestionJob:
     document, version = await _load_owner_document_and_latest_version(
         session,
@@ -332,6 +364,8 @@ async def reindex_document(
         version=version,
         idempotency_key=idempotency_key,
         reason="reindex",
+        request_id=request_id,
+        trace_id=trace_id,
     )
 
 
@@ -526,6 +560,8 @@ async def _create_followup_job(
     version: DocumentVersion,
     idempotency_key: str | None,
     reason: str,
+    request_id: str | None,
+    trace_id: str | None,
 ) -> IngestionJob:
     if idempotency_key:
         existing = await session.scalar(
@@ -548,7 +584,7 @@ async def _create_followup_job(
         stage=QUEUED,
         idempotency_key=idempotency_key or f"{reason}:{document.id}:{secrets.token_urlsafe(12)}",
         stage_log=[],
-        metrics={"reason": reason},
+        metrics={"reason": reason, "request_id": request_id, "trace_id": trace_id},
     )
     document.status = QUEUED
     session.add(job)
@@ -561,6 +597,8 @@ async def _transition(
     job: IngestionJob,
     document: Document,
     target: str,
+    *,
+    settings: Settings | None = None,
 ) -> None:
     validate_transition(job.status, target)
     now = utc_now()
@@ -573,6 +611,27 @@ async def _transition(
         job.completed_at = now
     job.stage_log = [*job.stage_log, _stage_log_entry(target)]
     document.status = target
+    if settings is not None:
+        metrics = job.metrics or {}
+        await record_span(
+            session,
+            settings,
+            name="loomi.ingestion.stage",
+            component="ingestion",
+            trace_id=str(metrics.get("trace_id") or job.id),
+            owner_user_id=job.owner_user_id,
+            status="error" if target == FAILED else "ok",
+            error_code=job.error_code if target == FAILED else None,
+            attributes={
+                "document_id": document.id,
+                "document_version_id": job.document_version_id,
+                "job_id": job.id,
+                "request_id": metrics.get("request_id"),
+                "trace_id": metrics.get("trace_id") or job.id,
+                "stage": target,
+                "status": target,
+            },
+        )
     await session.commit()
 
 
@@ -580,6 +639,8 @@ async def _raise_if_cancelled(
     session: AsyncSession,
     job: IngestionJob,
     document: Document,
+    *,
+    settings: Settings | None = None,
 ) -> None:
     await session.refresh(job)
     if job.status == CANCELLED:
@@ -587,7 +648,7 @@ async def _raise_if_cancelled(
         await session.commit()
         raise IngestionError("ingestion_cancelled", "Ingestion was cancelled.")
     if job.cancel_requested_at is not None:
-        await _transition(session, job, document, CANCELLED)
+        await _transition(session, job, document, CANCELLED, settings=settings)
         raise IngestionError("ingestion_cancelled", "Ingestion was cancelled.")
 
 
@@ -648,6 +709,7 @@ async def _replace_indexes(
 
 async def _fail_job(
     session: AsyncSession,
+    settings: Settings,
     job: IngestionJob,
     document: Document,
     code: str,
@@ -656,7 +718,7 @@ async def _fail_job(
     job.error_code = code
     job.error_detail = detail
     if job.status != FAILED:
-        await _transition(session, job, document, FAILED)
+        await _transition(session, job, document, FAILED, settings=settings)
     else:
         await session.commit()
     logger.info(

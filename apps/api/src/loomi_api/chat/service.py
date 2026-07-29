@@ -23,6 +23,8 @@ from loomi_api.db.models import (
 )
 from loomi_api.model_gateway.contracts import ModelRequest, ProviderError, ProviderName
 from loomi_api.model_gateway.providers import ProviderGateway
+from loomi_api.observability.prompts import get_prompt
+from loomi_api.observability.telemetry import elapsed_ms, record_span, start_timer
 from loomi_api.retrieval.contracts import (
     ContextItem,
     RetrievalQuery,
@@ -219,6 +221,8 @@ async def stream_run_events(
                 limit=12,
                 min_score=options.min_score,
                 debug=options.debug,
+                request_id=request_id,
+                trace_id=trace_id,
             )
             retrieval = await RetrievalService(settings, RetrievalConfig()).search(
                 session,
@@ -246,6 +250,16 @@ async def stream_run_events(
             )
 
             provider = ProviderGateway(settings).provider_for(provider_name)
+            prompt = get_prompt("grounded_chat")
+            run = await _load_run(session, created.run_id, owner_user_id)
+            run.provider = provider_name
+            run.model = model
+            run.trace_metadata = {
+                **(run.trace_metadata or {}),
+                "prompt_id": prompt.stable_id,
+                "prompt_version": prompt.version,
+                "selected_context_count": len(selected_context),
+            }
 
             async def is_cancelled() -> bool:
                 run = await _load_run(session, created.run_id, owner_user_id)
@@ -261,31 +275,100 @@ async def stream_run_events(
                 trace_id=trace_id,
                 max_output_tokens=settings.model_max_output_tokens,
             )
-            async for delta in provider.stream_chat(model_request, is_cancelled):
-                if await is_cancelled():
-                    await _set_run_state(session, created.run_id, owner_user_id, "cancelled")
-                    yield await _event(
-                        session,
-                        created.run_id,
-                        "cancelled",
-                        {"run_id": created.run_id},
-                    )
-                    return
-                if delta.delta_type == "token":
-                    answer_parts.append(delta.text)
-                    yield await _event(session, created.run_id, "token_delta", {"text": delta.text})
-                elif delta.delta_type == "citation" and delta.citation_id:
-                    raw_citation_ids.append(delta.citation_id)
-                elif delta.delta_type == "warning" and delta.warning:
-                    warnings.append(delta.warning)
-                    yield await _event(session, created.run_id, "warning", {"code": delta.warning})
-                elif delta.delta_type == "completed" and delta.usage is not None:
-                    usage_payload = {
-                        "input_tokens": delta.usage.input_tokens,
-                        "output_tokens": delta.usage.output_tokens,
-                        "total_tokens": delta.usage.total_tokens,
-                        "estimated_cost_usd": delta.usage.estimated_cost_usd,
-                    }
+            model_started = start_timer()
+            try:
+                async for delta in provider.stream_chat(model_request, is_cancelled):
+                    if await is_cancelled():
+                        await record_span(
+                            session,
+                            settings,
+                            name="loomi.model.generation",
+                            component="model",
+                            trace_id=trace_id,
+                            owner_user_id=owner_user_id,
+                            status="cancelled",
+                            duration_ms=elapsed_ms(model_started),
+                            attributes=_model_span_attributes(
+                                provider=provider_name,
+                                model=model,
+                                prompt_id=prompt.stable_id,
+                                prompt_version=prompt.version,
+                                selected_context_count=len(selected_context),
+                                usage=usage_payload,
+                                request_id=request_id,
+                                trace_id=trace_id,
+                            ),
+                        )
+                        await _set_run_state(session, created.run_id, owner_user_id, "cancelled")
+                        yield await _event(
+                            session,
+                            created.run_id,
+                            "cancelled",
+                            {"run_id": created.run_id},
+                        )
+                        return
+                    if delta.delta_type == "token":
+                        answer_parts.append(delta.text)
+                        yield await _event(
+                            session, created.run_id, "token_delta", {"text": delta.text}
+                        )
+                    elif delta.delta_type == "citation" and delta.citation_id:
+                        raw_citation_ids.append(delta.citation_id)
+                    elif delta.delta_type == "warning" and delta.warning:
+                        warnings.append(delta.warning)
+                        yield await _event(
+                            session, created.run_id, "warning", {"code": delta.warning}
+                        )
+                    elif delta.delta_type == "completed" and delta.usage is not None:
+                        usage_payload = {
+                            "input_tokens": delta.usage.input_tokens,
+                            "output_tokens": delta.usage.output_tokens,
+                            "total_tokens": delta.usage.total_tokens,
+                            "estimated_cost_usd": delta.usage.estimated_cost_usd,
+                        }
+            except ProviderError as exc:
+                await record_span(
+                    session,
+                    settings,
+                    name="loomi.model.generation",
+                    component="model",
+                    trace_id=trace_id,
+                    owner_user_id=owner_user_id,
+                    status="error",
+                    duration_ms=elapsed_ms(model_started),
+                    error_code=exc.code,
+                    attributes=_model_span_attributes(
+                        provider=provider_name,
+                        model=model,
+                        prompt_id=prompt.stable_id,
+                        prompt_version=prompt.version,
+                        selected_context_count=len(selected_context),
+                        usage=usage_payload,
+                        request_id=request_id,
+                        trace_id=trace_id,
+                        error_code=exc.code,
+                    ),
+                )
+                raise
+            await record_span(
+                session,
+                settings,
+                name="loomi.model.generation",
+                component="model",
+                trace_id=trace_id,
+                owner_user_id=owner_user_id,
+                duration_ms=elapsed_ms(model_started),
+                attributes=_model_span_attributes(
+                    provider=provider_name,
+                    model=model,
+                    prompt_id=prompt.stable_id,
+                    prompt_version=prompt.version,
+                    selected_context_count=len(selected_context),
+                    usage=usage_payload,
+                    request_id=request_id,
+                    trace_id=trace_id,
+                ),
+            )
             answer_text = "".join(answer_parts).strip()
             valid_citations, invalid_ids = validate_citations(raw_citation_ids, selected_context)
             if invalid_ids:
@@ -477,6 +560,35 @@ async def _record_event(
             payload=json.loads(json.dumps(payload, default=str)),
         )
     )
+
+
+def _model_span_attributes(
+    *,
+    provider: ProviderName,
+    model: str,
+    prompt_id: str,
+    prompt_version: str,
+    selected_context_count: int,
+    usage: dict[str, object] | None,
+    request_id: str,
+    trace_id: str,
+    error_code: str | None = None,
+) -> dict[str, object]:
+    usage_payload = usage or {}
+    return {
+        "provider": provider,
+        "model": model,
+        "prompt_id": prompt_id,
+        "prompt_version": prompt_version,
+        "selected_context_count": selected_context_count,
+        "input_tokens": usage_payload.get("input_tokens", 0),
+        "output_tokens": usage_payload.get("output_tokens", 0),
+        "total_tokens": usage_payload.get("total_tokens", 0),
+        "estimated_cost_usd": usage_payload.get("estimated_cost_usd", 0),
+        "request_id": request_id,
+        "trace_id": trace_id,
+        "error_code": error_code,
+    }
 
 
 def validate_citations(

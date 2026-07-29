@@ -63,8 +63,7 @@ def sanitize_value(value: Any, *, string_limit: int = 1200, depth: int = 0) -> A
     if isinstance(value, list | tuple):
         limited = list(value[:50])
         list_output = [
-            sanitize_value(item, string_limit=string_limit, depth=depth + 1)
-            for item in limited
+            sanitize_value(item, string_limit=string_limit, depth=depth + 1) for item in limited
         ]
         if len(value) > len(limited):
             list_output.append("[truncated-list]")

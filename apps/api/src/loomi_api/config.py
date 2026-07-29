@@ -65,6 +65,20 @@ class Settings(BaseSettings):
     extraction_engine: Literal["builtin", "docling"] = "builtin"
     scanner_mode: Literal["fake-clean", "fake-reject", "unavailable"] = "fake-clean"
     scanner_required: bool = False
+    observability_enabled: bool = True
+    observability_exporter: Literal["none", "local_file", "otlp_http", "langfuse_otlp"] = (
+        "local_file"
+    )
+    observability_exporter_endpoint: str | None = None
+    observability_trace_base_url: str | None = None
+    observability_langfuse_public_key: SecretStr | None = None
+    observability_langfuse_secret_key: SecretStr | None = None
+    observability_local_only: bool = True
+    observability_sample_rate: float = 1.0
+    observability_content_capture: Literal["none", "metadata", "redacted"] = "none"
+    observability_max_field_chars: int = 600
+    observability_retention_days: int = 14
+    observability_export_timeout_seconds: float = 0.4
 
     @model_validator(mode="after")
     def validate_auth_settings(self) -> Self:
@@ -77,6 +91,12 @@ class Settings(BaseSettings):
                 raise ValueError("LOOMI_CORS_ORIGINS must not contain '*' in production")
             if not self.scanner_required:
                 raise ValueError("LOOMI_SCANNER_REQUIRED must be true in production")
+            if self.observability_content_capture != "none":
+                raise ValueError("LOOMI_OBSERVABILITY_CONTENT_CAPTURE must be 'none' in production")
+            if self.observability_sample_rate > 0.25:
+                raise ValueError("LOOMI_OBSERVABILITY_SAMPLE_RATE must be <= 0.25 in production")
+            if not self.observability_local_only and self.observability_exporter == "local_file":
+                raise ValueError("External production observability needs an external exporter")
         return self
 
 

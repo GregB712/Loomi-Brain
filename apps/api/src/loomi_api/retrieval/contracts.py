@@ -29,6 +29,8 @@ class RetrievalQuery:
     offset: int = 0
     min_score: float = 0.0
     debug: bool = False
+    request_id: str | None = None
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True)

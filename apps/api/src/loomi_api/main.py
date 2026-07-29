@@ -15,6 +15,7 @@ from loomi_api.api import (
     feedback,
     health,
     ingestion_jobs,
+    observability,
     providers,
     search,
 )
@@ -79,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(agent_runs.router)
     app.include_router(providers.router)
     app.include_router(feedback.router)
+    app.include_router(observability.router)
 
     return app
 

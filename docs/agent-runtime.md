@@ -54,6 +54,8 @@ Terminal states are `complete`, `cancelled`, and `failed`.
 - Approval is single-use; changed approval arguments expire the approval and fail the run.
 - Cancellation is persisted and terminal.
 - All event payloads are sanitized before persistence.
+- Phase 5 records sanitized telemetry spans for state transitions, tool calls, approvals,
+  prompt IDs/versions, usage, latency, and safe error codes.
 
 ## API
 

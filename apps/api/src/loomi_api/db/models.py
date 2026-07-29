@@ -401,12 +401,42 @@ class UserFeedback(IdMixin, TimestampMixin, Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class TelemetrySpan(IdMixin, TimestampMixin, Base):
+    __tablename__ = "telemetry_spans"
+
+    owner_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    trace_id: Mapped[str] = mapped_column(String(160), index=True)
+    span_id: Mapped[str] = mapped_column(String(32), index=True)
+    parent_span_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    name: Mapped[str] = mapped_column(String(160))
+    component: Mapped[str] = mapped_column(String(80))
+    kind: Mapped[str] = mapped_column(String(40), default="internal")
+    status: Mapped[str] = mapped_column(String(40), default="ok")
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    error_code: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    sampled: Mapped[bool] = mapped_column(Boolean, default=True)
+    exporter_status: Mapped[str] = mapped_column(String(40), default="not_exported")
+    exporter_error: Mapped[str | None] = mapped_column(String(240), nullable=True)
+
+    __table_args__ = (
+        Index("ix_telemetry_spans_owner_created", "owner_user_id", "created_at"),
+        Index("ix_telemetry_spans_trace_created", "trace_id", "created_at"),
+        Index("ix_telemetry_spans_component_name", "component", "name"),
+    )
+
+
 class EvaluationDataset(IdMixin, TimestampMixin, Base):
     __tablename__ = "evaluation_datasets"
 
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(160))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dataset_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
 class EvaluationRun(IdMixin, TimestampMixin, Base):
@@ -418,6 +448,13 @@ class EvaluationRun(IdMixin, TimestampMixin, Base):
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     status: Mapped[str] = mapped_column(String(40), default="created")
     metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    run_kind: Mapped[str] = mapped_column(String(40), default="deterministic")
+    baseline_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    threshold_profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    report: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    regression_count: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class EvaluationResult(IdMixin, TimestampMixin, Base):

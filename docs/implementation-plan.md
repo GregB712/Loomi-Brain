@@ -224,6 +224,8 @@ Phase 4 implementation notes:
 
 ## Phase 5: Observability And Evaluation
 
+Status: implemented.
+
 Goal: local traces, metrics, LLM observability, redaction, feedback, and synthetic evaluations work without paid services.
 
 Work items:
@@ -242,6 +244,21 @@ Acceptance criteria:
 - Trace IDs correlate UI, API, worker, retrieval, model, and tool events.
 - Langfuse unavailable path is graceful.
 - Evaluation command produces a report from synthetic fixtures.
+
+Phase 5 implementation notes:
+
+- `telemetry_spans` stores sanitized, allowlisted, bounded span attributes for API,
+  retrieval, model, agent, tool, approval, and ingestion signals.
+- Exporter modes are `none`, `local_file`, `otlp_http`, and `langfuse_otlp`; exporter
+  failures are recorded on spans and do not break product requests.
+- Production rejects telemetry content capture and sampling above 25%.
+- Prompt registry entries record stable prompt IDs and versions in traces without
+  unrestricted prompt or document context capture.
+- `/api/v1/observability` exposes owner-only status, summary, recent runs, model usage,
+  retrieval diagnostics, evaluation, and feedback endpoints with bounded date ranges.
+- `/observability` provides product-level summaries and trace links.
+- `make eval` now reports retrieval, citation, groundedness, no-answer, prompt-injection,
+  tool-policy, latency, token, cost, and threshold regression results.
 
 ## Phase 6: MCP
 

@@ -25,7 +25,7 @@ const navigation = [
   { label: "Runs", icon: Workflow, href: "/runs" },
   { label: "Skills", icon: Sparkles, href: "#" },
   { label: "MCP", icon: Plug, href: "#" },
-  { label: "Observability", icon: Activity, href: "#" },
+  { label: "Observability", icon: Activity, href: "/observability" },
   { label: "Settings", icon: KeyRound, href: "#" },
 ];
 

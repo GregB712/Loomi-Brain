@@ -165,6 +165,8 @@ async def upload_documents(
                 owner_user_id=owner.user.id,
                 upload=upload,
                 idempotency_key=f"{base_key}:{index}" if base_key else None,
+                request_id=str(getattr(request.state, "request_id", "")),
+                trace_id=str(getattr(request.state, "trace_id", "")),
             )
             accepted.append(accepted_item)
         except IngestionError as exc:
@@ -323,6 +325,8 @@ async def retry_ingestion(
             owner_user_id=owner.user.id,
             document_id=document_id,
             idempotency_key=idempotency_key,
+            request_id=str(getattr(request.state, "request_id", "")),
+            trace_id=str(getattr(request.state, "trace_id", "")),
         )
     except IngestionError as exc:
         _raise_http(exc)
@@ -346,6 +350,8 @@ async def reindex(
             owner_user_id=owner.user.id,
             document_id=document_id,
             idempotency_key=idempotency_key,
+            request_id=str(getattr(request.state, "request_id", "")),
+            trace_id=str(getattr(request.state, "trace_id", "")),
         )
     except IngestionError as exc:
         _raise_http(exc)

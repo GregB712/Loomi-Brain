@@ -52,6 +52,16 @@ Phase 4 adds the controlled agent runtime:
 - Agent Run Inspector web route at `/runs` with timeline, tools, approvals, usage,
   errors, cancel, retry, approve, and deny controls.
 
+Phase 5 adds privacy-safe observability and evaluation:
+
+- Sanitized telemetry spans for API requests, retrieval, model generations, agent
+  states, tool calls, approvals, and ingestion stages.
+- Controlled prompt registry with stable IDs and versions recorded in traces.
+- Owner-only observability API endpoints for summaries, recent runs, model usage,
+  retrieval diagnostics, evaluation history, and feedback.
+- Observability web route at `/observability`.
+- Deterministic evaluation baselines and regression thresholds for offline CI.
+
 ## Architecture Overview
 
 Loomi-Brain uses a monorepo with separate web, API, worker, shared UI, shared contracts, infrastructure, tests, scripts, and documentation modules.
@@ -237,6 +247,10 @@ Phase 4 completes the runtime fields on `agent_runs`, `agent_events`, `tool_call
 tools, limits, policy decisions, canonical argument hashes, redacted tool arguments and
 results, approval state, retry counts, usage/cost estimates, latency, trace IDs, and
 terminal errors.
+
+Phase 5 adds `telemetry_spans` for sanitized trace summaries and extends evaluation
+runs with baseline, threshold, report, regression, and timing metadata. Span attributes
+are allowlisted before persistence/export.
 
 ## Ingestion Pipeline
 

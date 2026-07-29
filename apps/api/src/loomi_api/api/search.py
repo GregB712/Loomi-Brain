@@ -104,8 +104,11 @@ async def _run_search(
                 offset=payload.offset,
                 min_score=payload.min_score,
                 debug=payload.debug,
+                request_id=str(getattr(request.state, "request_id", "")),
+                trace_id=str(getattr(request.state, "trace_id", "")),
             ),
         )
+        await session.commit()
     except RetrievalError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return SearchResponse(

@@ -38,6 +38,8 @@ from loomi_api.agent_runtime.tools import ToolRegistry, default_tool_registry
 from loomi_api.config import Settings
 from loomi_api.db.base import new_id, utc_now
 from loomi_api.db.models import AgentEvent, AgentRun, Approval, AuditEvent, ToolCall
+from loomi_api.observability.prompts import get_prompt
+from loomi_api.observability.telemetry import record_span
 from loomi_api.retrieval.contracts import ContextItem, RetrievalQuery, SearchFilters
 from loomi_api.retrieval.service import RetrievalService
 
@@ -83,6 +85,7 @@ class AgentRuntimeService:
         if existing is not None:
             return await self.detail(request.owner_user_id, existing.id)
 
+        prompt = get_prompt("agent_runtime")
         run = AgentRun(
             id=_deterministic_run_id(request.owner_user_id, request.idempotency_key),
             owner_user_id=request.owner_user_id,
@@ -105,7 +108,13 @@ class AgentRuntimeService:
             },
             retry_count=0,
             started_at=utc_now(),
-            trace_metadata={"step_count": 1, "tool_call_count": 0, "events": []},
+            trace_metadata={
+                "step_count": 1,
+                "tool_call_count": 0,
+                "events": [],
+                "prompt_id": prompt.stable_id,
+                "prompt_version": prompt.version,
+            },
         )
         self.session.add(run)
         await self.session.flush()
@@ -186,6 +195,18 @@ class AgentRuntimeService:
                 "arguments_hash": approval.arguments_hash,
             },
         )
+        await self._record_agent_span(
+            run,
+            "loomi.agent.approval",
+            {
+                "approval_id": approval.id,
+                "tool_call_id": tool_call.id,
+                "tool_id": approval.tool_id,
+                "risk_class": approval.risk_class,
+                "arguments_hash": approval.arguments_hash,
+                "status": "approved",
+            },
+        )
         await self._audit(
             run,
             "agent.approval_approved",
@@ -227,6 +248,20 @@ class AgentRuntimeService:
                 "tool_id": approval.tool_id,
                 "reason": approval.denial_reason,
             },
+        )
+        await self._record_agent_span(
+            run,
+            "loomi.agent.approval",
+            {
+                "approval_id": approval.id,
+                "tool_call_id": tool_call.id,
+                "tool_id": approval.tool_id,
+                "risk_class": approval.risk_class,
+                "arguments_hash": approval.arguments_hash,
+                "status": "denied",
+            },
+            status="error",
+            error_code="approval_denied",
         )
         await self._audit(
             run,
@@ -518,6 +553,19 @@ class AgentRuntimeService:
                 "usage": result.usage,
             },
         )
+        await self._record_agent_span(
+            run,
+            "loomi.agent.tool_call",
+            {
+                "tool_call_id": work.tool_call.id,
+                "tool_id": work.tool.id,
+                "tool_name": work.tool.id,
+                "risk_class": work.tool.risk_class,
+                "status": work.tool_call.status,
+                "latency_ms": work.tool_call.latency_ms,
+            },
+            duration_ms=work.tool_call.latency_ms or 0,
+        )
         work.answer_text = self._answer_from_tool(work)
         await self._synthesize_and_complete(work)
 
@@ -566,6 +614,20 @@ class AgentRuntimeService:
                 "status": "failed",
                 "code": code,
             },
+        )
+        await self._record_agent_span(
+            work.run,
+            "loomi.agent.tool_call",
+            {
+                "tool_call_id": work.tool_call.id,
+                "tool_id": work.tool_call.tool_id,
+                "tool_name": work.tool_call.tool_name,
+                "risk_class": work.tool_call.risk_class,
+                "status": "failed",
+                "error_code": code,
+            },
+            status="error",
+            error_code=code,
         )
         await self._fail(work.run, code, detail)
 
@@ -635,6 +697,8 @@ class AgentRuntimeService:
                     limit=6,
                     min_score=0.0,
                     debug=True,
+                    request_id=work.request.request_id,
+                    trace_id=work.request.trace_id,
                 ),
             )
         except Exception:
@@ -706,8 +770,7 @@ class AgentRuntimeService:
     def _answer_without_tool(self, work: _RunWork) -> str:
         if not work.context:
             return (
-                "I cannot answer from the current knowledge base because no evidence "
-                "was selected."
+                "I cannot answer from the current knowledge base because no evidence was selected."
             )
         first = work.context[0]
         return (
@@ -722,10 +785,7 @@ class AgentRuntimeService:
         if work.tool.id == "calculator":
             return f"Result: {output.get('result')}."
         if work.tool.id == "notes.create_draft":
-            return (
-                f"Draft note staged: {output.get('title')} "
-                f"({output.get('draft_note_id')})."
-            )
+            return f"Draft note staged: {output.get('title')} ({output.get('draft_note_id')})."
         if work.tool.id == "knowledge.search":
             items = output.get("items", [])
             if not isinstance(items, list) or not items:
@@ -775,6 +835,22 @@ class AgentRuntimeService:
                 **sanitize_value(payload),
             },
         )
+        await self._record_agent_span(
+            run,
+            "loomi.agent.state",
+            {
+                "from_state": previous,
+                "to_state": next_state,
+                "state": next_state,
+                "provider": run.provider,
+                "model": run.model,
+                "prompt_id": metadata.get("prompt_id"),
+                "prompt_version": metadata.get("prompt_version"),
+                **cast(dict[str, Any], sanitize_value(payload)),
+            },
+            status="error" if next_state == "failed" else "ok",
+            error_code=payload.get("code") if isinstance(payload.get("code"), str) else None,
+        )
 
     async def _fail(self, run: AgentRun, code: str, detail: str) -> None:
         if is_terminal(run.state):
@@ -797,6 +873,33 @@ class AgentRuntimeService:
         )
         await self._audit(run, "agent.run_failed", {"code": code})
         await self.session.commit()
+
+    async def _record_agent_span(
+        self,
+        run: AgentRun,
+        name: str,
+        attributes: dict[str, Any],
+        *,
+        status: str = "ok",
+        duration_ms: int = 0,
+        error_code: str | None = None,
+    ) -> None:
+        await record_span(
+            self.session,
+            self.settings,
+            name=name,
+            component="agent",
+            trace_id=run.trace_id,
+            owner_user_id=run.owner_user_id,
+            status=status,
+            duration_ms=duration_ms,
+            error_code=error_code,
+            attributes={
+                "run_id": run.id,
+                "trace_id": run.trace_id,
+                **attributes,
+            },
+        )
 
     async def _expire_approval(
         self,
@@ -865,7 +968,8 @@ class AgentRuntimeService:
             AgentRun | None,
             await self.session.scalar(
                 select(AgentRun).where(
-                    AgentRun.id == _deterministic_run_id(
+                    AgentRun.id
+                    == _deterministic_run_id(
                         request.owner_user_id,
                         request.idempotency_key,
                     ),
@@ -1129,9 +1233,7 @@ def _deterministic_run_id(owner_user_id: str, idempotency_key: str | None) -> st
 
 
 def _extract_expression(owner_request: str) -> str:
-    expression = "".join(
-        char for char in owner_request if char in "0123456789+-*/%(). "
-    ).strip()
+    expression = "".join(char for char in owner_request if char in "0123456789+-*/%(). ").strip()
     if not expression:
         return "0"
     return expression

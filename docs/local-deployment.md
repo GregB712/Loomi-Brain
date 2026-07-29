@@ -20,6 +20,34 @@ Password: loomi-local-owner-password
 
 Default Compose services are PostgreSQL with pgvector, Redis, API, worker, and web. The API persists uploaded source objects in the `loomi-api-objects` volume at `/app/apps/api/var/private-objects`.
 
+## Observability Profile
+
+Start the local collector UI:
+
+```bash
+docker compose -f infra/docker/compose.yml --profile observability up -d observability
+```
+
+The profile exposes the LGTM UI on `127.0.0.1:3001` and OTLP on
+`127.0.0.1:4317`/`127.0.0.1:4318`. The API defaults to local JSONL span export under
+`LOOMI_STORAGE_ROOT/observability/telemetry.jsonl`. To post spans to the local OTLP
+collector, set:
+
+```bash
+LOOMI_OBSERVABILITY_EXPORTER=otlp_http
+LOOMI_OBSERVABILITY_EXPORTER_ENDPOINT=http://observability:4318/v1/traces
+LOOMI_OBSERVABILITY_LOCAL_ONLY=false
+```
+
+Tear down the optional collector:
+
+```bash
+docker compose -f infra/docker/compose.yml --profile observability down
+```
+
+Retention is controlled by `LOOMI_OBSERVABILITY_RETENTION_DAYS`; local JSONL pruning is
+manual for this phase.
+
 Optional profiles:
 
 ```bash

@@ -360,21 +360,60 @@ class MCPServer(IdMixin, TimestampMixin, Base):
 
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     transport: Mapped[str] = mapped_column(String(40))
     command_template: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    secret_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    environment_allowlist: Mapped[list[str]] = mapped_column(JSON, default=list)
+    working_directory: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    connection_timeout_seconds: Mapped[int] = mapped_column(Integer, default=5)
+    tool_timeout_seconds: Mapped[int] = mapped_column(Integer, default=10)
+    output_size_limit: Mapped[int] = mapped_column(Integer, default=12_000)
+    health_status: Mapped[str] = mapped_column(String(40), default="unknown")
+    health_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    capability_cache: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     policy: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_connected_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_capability_refresh_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_error: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+
+    __table_args__ = (Index("ix_mcp_servers_owner_disabled", "owner_user_id", "disabled_at"),)
 
 
 class MCPCapability(IdMixin, TimestampMixin, Base):
     __tablename__ = "mcp_capabilities"
 
     server_id: Mapped[str] = mapped_column(ForeignKey("mcp_servers.id", ondelete="CASCADE"))
+    owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     capability_type: Mapped[str] = mapped_column(String(40))
     name: Mapped[str] = mapped_column(String(160))
+    title: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    output_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     risk_class: Mapped[str] = mapped_column(String(40), default="read")
+    approval_policy: Mapped[str] = mapped_column(String(40), default="risk-based")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    schema_hash: Mapped[str] = mapped_column(String(64), default="")
+    capability_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index(
+            "ix_mcp_capabilities_unique",
+            "server_id",
+            "capability_type",
+            "name",
+            unique=True,
+        ),
+        Index("ix_mcp_capabilities_owner_enabled", "owner_user_id", "enabled"),
+    )
 
 
 class AuditEvent(IdMixin, TimestampMixin, Base):

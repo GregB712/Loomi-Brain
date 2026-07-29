@@ -264,6 +264,8 @@ Phase 5 implementation notes:
 
 Goal: owner can connect a harmless demo MCP server and invoke allowed tools while forbidden tools are blocked.
 
+Status: implemented in Phase 6.
+
 Work items:
 
 1. MCP registry.
@@ -283,6 +285,25 @@ Acceptance criteria:
 - Forbidden tool is blocked.
 - Destructive tool requires explicit approval.
 - Server metadata cannot alter policy.
+
+Implementation notes:
+
+- `/api/v1/mcp` exposes owner-only registry, capability refresh, policy, invoke,
+  and audit endpoints.
+- `/mcp` provides the MCP server registry, capability list, policy editor,
+  approval panel, and audit table.
+- Stdio uses allowlisted templates and no shell. The built-in `loomi-test`
+  server offers harmless tools and policy probes.
+- Streamable HTTP endpoints are validated before use and block redirects and
+  SSRF destinations by default.
+- Discovered capabilities are disabled by default; enabling/lowering risk
+  requires confirmation.
+- Dynamic MCP tools use `mcp::<server_id>::<tool_name>` and execute through the
+  Phase 4 agent runtime.
+- Tool approvals bind to the local schema hash, so schema drift invalidates
+  stale approvals.
+- MCP registry, discovery, policy, and execution events write audit events and
+  Phase 5 telemetry spans.
 
 ## Phase 7: Skills
 

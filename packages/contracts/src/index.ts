@@ -464,6 +464,107 @@ export type ObservabilityFeedbackSummary = {
   items: Array<Record<string, unknown>>;
 };
 
+export type MCPTransport = "stdio" | "streamable_http";
+
+export type MCPRiskClass =
+  | "read-only"
+  | "local-mutation"
+  | "external-mutation"
+  | "credential-sensitive"
+  | "destructive";
+
+export type MCPApprovalPolicy = "never" | "risk-based" | "always";
+
+export type MCPCapability = {
+  id: string;
+  server_id: string;
+  tool_id: string | null;
+  capability_type: "tool" | "resource" | "prompt" | string;
+  name: string;
+  title: string | null;
+  description: string | null;
+  schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
+  risk_class: MCPRiskClass;
+  approval_policy: MCPApprovalPolicy;
+  enabled: boolean;
+  schema_hash: string;
+  metadata: Record<string, unknown>;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MCPServer = {
+  id: string;
+  name: string;
+  description: string | null;
+  transport: MCPTransport;
+  enabled: boolean;
+  command_template: string[];
+  url: string | null;
+  has_secret_ref: boolean;
+  environment_allowlist: string[];
+  working_directory: string | null;
+  connection_timeout_seconds: number;
+  tool_timeout_seconds: number;
+  output_size_limit: number;
+  health_status: string;
+  health_detail: string | null;
+  capability_cache: Record<string, unknown>;
+  policy: Record<string, unknown>;
+  last_connected_at: string | null;
+  last_capability_refresh_at: string | null;
+  last_error: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  capabilities?: MCPCapability[];
+};
+
+export type MCPServerListResponse = {
+  items: MCPServer[];
+  total: number;
+  limit: number;
+  offset: number;
+  templates: Array<{ name: string; description: string }>;
+};
+
+export type CreateMCPServerPayload = {
+  name: string;
+  description?: string | null;
+  transport: MCPTransport;
+  template_name?: string | null;
+  url?: string | null;
+  secret_ref?: string | null;
+  environment_allowlist?: string[];
+  working_directory?: string | null;
+  connection_timeout_seconds?: number;
+  tool_timeout_seconds?: number;
+  output_size_limit?: number;
+  allow_private_networks?: boolean;
+};
+
+export type MCPPolicyPayload = {
+  enabled: boolean;
+  risk_class: MCPRiskClass;
+  approval_policy: MCPApprovalPolicy;
+  expected_side_effects?: string | null;
+  confirm_broadening: boolean;
+};
+
+export type MCPAuditResponse = {
+  items: Array<{
+    id: string;
+    event_type: string;
+    request_id: string | null;
+    trace_id: string | null;
+    metadata: Record<string, unknown>;
+    created_at: string;
+  }>;
+  limit: number;
+  offset: number;
+};
+
 export type SourceChunk = {
   chunk_id: string;
   document_id: string;
@@ -761,6 +862,125 @@ export function createLoomiClient(apiBase: string) {
     },
     providerHealth() {
       return request<ProviderHealth[]>(apiBase, "/api/v1/providers/health");
+    },
+    listMcpTemplates() {
+      return request<{ items: Array<{ name: string; description: string }> }>(
+        apiBase,
+        "/api/v1/mcp/templates",
+      );
+    },
+    listMcpServers(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<MCPServerListResponse>(
+        apiBase,
+        `/api/v1/mcp/servers${query ? `?${query}` : ""}`,
+      );
+    },
+    createMcpServer(csrfToken: string, payload: CreateMCPServerPayload) {
+      return request<MCPServer>(apiBase, "/api/v1/mcp/servers", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify(payload),
+      });
+    },
+    getMcpServer(serverId: string) {
+      return request<MCPServer>(apiBase, `/api/v1/mcp/servers/${serverId}`);
+    },
+    updateMcpServer(
+      serverId: string,
+      csrfToken: string,
+      payload: Partial<CreateMCPServerPayload>,
+    ) {
+      return request<MCPServer>(apiBase, `/api/v1/mcp/servers/${serverId}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify(payload),
+      });
+    },
+    setMcpServerEnabled(serverId: string, csrfToken: string, enabled: boolean) {
+      return request<MCPServer>(
+        apiBase,
+        `/api/v1/mcp/servers/${serverId}/${enabled ? "enable" : "disable"}`,
+        { method: "POST", headers: { "x-csrf-token": csrfToken } },
+      );
+    },
+    deleteMcpServer(serverId: string, csrfToken: string, confirmName: string) {
+      return request<void>(apiBase, `/api/v1/mcp/servers/${serverId}`, {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({ confirm_name: confirmName }),
+      });
+    },
+    testMcpConnection(serverId: string, csrfToken: string) {
+      return request<Record<string, unknown>>(
+        apiBase,
+        `/api/v1/mcp/servers/${serverId}/test-connection`,
+        { method: "POST", headers: { "x-csrf-token": csrfToken } },
+      );
+    },
+    refreshMcpCapabilities(serverId: string, csrfToken: string) {
+      return request<MCPServer>(
+        apiBase,
+        `/api/v1/mcp/servers/${serverId}/refresh-capabilities`,
+        { method: "POST", headers: { "x-csrf-token": csrfToken } },
+      );
+    },
+    updateMcpCapabilityPolicy(
+      capabilityId: string,
+      csrfToken: string,
+      payload: MCPPolicyPayload,
+    ) {
+      return request<MCPCapability>(
+        apiBase,
+        `/api/v1/mcp/capabilities/${capabilityId}/policy`,
+        {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    invokeMcpCapability(
+      serverId: string,
+      capabilityId: string,
+      csrfToken: string,
+      payload: {
+        arguments: Record<string, unknown>;
+        owner_request?: string | null;
+      },
+    ) {
+      return request<AgentRunDetail>(
+        apiBase,
+        `/api/v1/mcp/servers/${serverId}/capabilities/${capabilityId}/invoke`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+            "idempotency-key": crypto.randomUUID(),
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    mcpAudit(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<MCPAuditResponse>(
+        apiBase,
+        `/api/v1/mcp/audit${query ? `?${query}` : ""}`,
+      );
     },
     observabilityStatus() {
       return request<ObservabilityStatus>(

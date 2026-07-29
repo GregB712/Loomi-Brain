@@ -48,6 +48,25 @@ docker compose -f infra/docker/compose.yml --profile observability down
 Retention is controlled by `LOOMI_OBSERVABILITY_RETENTION_DAYS`; local JSONL pruning is
 manual for this phase.
 
+## MCP Local Testing
+
+Open `/mcp` after signing in and register the built-in `loomi-test` stdio
+template. The browser can select this template, but cannot submit an executable
+path or shell command string.
+
+Local MCP defaults:
+
+- `LOOMI_MCP_ENABLED=true`
+- `LOOMI_MCP_ALLOW_PRIVATE_NETWORKS=false`
+- `LOOMI_MCP_DEFAULT_CONNECTION_TIMEOUT_SECONDS=5`
+- `LOOMI_MCP_DEFAULT_TOOL_TIMEOUT_SECONDS=10`
+- `LOOMI_MCP_DEFAULT_OUTPUT_SIZE_LIMIT=12000`
+
+The test server exposes synthetic echo, add, note-search, truncation, and policy
+probe tools. Remote Streamable HTTP endpoints still block loopback, private,
+link-local, metadata, multicast, reserved, and unspecified destinations by
+default.
+
 Optional profiles:
 
 ```bash

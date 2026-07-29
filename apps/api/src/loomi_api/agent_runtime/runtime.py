@@ -26,7 +26,7 @@ from loomi_api.agent_runtime.policy import (
     POLICY_VERSION,
     PolicyError,
     approval_required,
-    canonical_args_hash,
+    canonical_tool_args_hash,
     forbidden_tool_request,
     policy_decision,
     sanitize_value,
@@ -38,6 +38,8 @@ from loomi_api.agent_runtime.tools import ToolRegistry, default_tool_registry
 from loomi_api.config import Settings
 from loomi_api.db.base import new_id, utc_now
 from loomi_api.db.models import AgentEvent, AgentRun, Approval, AuditEvent, ToolCall
+from loomi_api.mcp_client.protocol import MCP_TOOL_ID_PREFIX, MCPClientError, parse_mcp_tool_id
+from loomi_api.mcp_client.tools import load_mcp_tool
 from loomi_api.observability.prompts import get_prompt
 from loomi_api.observability.telemetry import record_span
 from loomi_api.retrieval.contracts import ContextItem, RetrievalQuery, SearchFilters
@@ -163,19 +165,21 @@ class AgentRuntimeService:
             return await self.detail(owner_user_id, run.id)
         if approval.used_at is not None:
             raise RuntimeError("Approval has already been used.")
-        if arguments is not None and canonical_args_hash(arguments) != approval.arguments_hash:
-            await self._expire_approval(run, approval, tool_call, "approval_arguments_changed")
-            return await self.detail(owner_user_id, run.id)
-
         work = _RunWork(
             run=run,
             request=self._request_from_run(run),
-            tool=self.registry.get(str(approval.tool_id)),
             tool_call=tool_call,
             warnings=[],
         )
+        work.tool = await self._resolve_tool(run, str(approval.tool_id))
         if work.tool is None:
             await self._fail(run, "tool_not_found", "Approved tool is no longer registered.")
+            return await self.detail(owner_user_id, run.id)
+        if (
+            arguments is not None
+            and canonical_tool_args_hash(work.tool, arguments) != approval.arguments_hash
+        ):
+            await self._expire_approval(run, approval, tool_call, "approval_arguments_changed")
             return await self.detail(owner_user_id, run.id)
         try:
             work.execution_args = self._execution_args_for(work.tool, tool_call)
@@ -391,7 +395,7 @@ class AgentRuntimeService:
     async def _validate_or_pause(self, work: _RunWork) -> None:
         assert work.planned_tool is not None
         run = work.run
-        tool = self.registry.get(work.planned_tool.tool_id)
+        tool = await self._resolve_tool(run, work.planned_tool.tool_id)
         if tool is None:
             await self._fail(run, "tool_not_found", "Requested tool is not registered.")
             return
@@ -402,7 +406,7 @@ class AgentRuntimeService:
         except PolicyError as exc:
             await self._fail(run, "tool_argument_validation_failed", str(exc))
             return
-        args_hash = canonical_args_hash(execution_args)
+        args_hash = canonical_tool_args_hash(tool, execution_args)
         decision = policy_decision(tool, tuple(run.allowed_tools or []), args_hash)
         await self._transition(run, "validate_tool_request", decision)
         if not decision["allowed"]:
@@ -729,6 +733,9 @@ class AgentRuntimeService:
         return intent
 
     def _plan_tool(self, work: _RunWork) -> PlannedToolCall | None:
+        mcp_call = _plan_mcp_tool(work.request.owner_request, work.request.allowed_tools)
+        if mcp_call is not None:
+            return mcp_call
         if work.intent == "calculate":
             return PlannedToolCall(
                 tool_id="calculator",
@@ -1052,10 +1059,26 @@ class AgentRuntimeService:
         execution_args = validate_tool_args(tool, dict(tool_call.redacted_arguments or {}))
         if (
             tool_call.arguments_hash is not None
-            and canonical_args_hash(execution_args) != tool_call.arguments_hash
+            and canonical_tool_args_hash(tool, execution_args) != tool_call.arguments_hash
         ):
             raise PolicyError("Tool arguments no longer match their canonical hash.")
         return execution_args
+
+    async def _resolve_tool(self, run: AgentRun, tool_id: str) -> Tool | None:
+        tool = self.registry.get(tool_id)
+        if tool is not None:
+            return tool
+        if tool_id.startswith(MCP_TOOL_ID_PREFIX):
+            return cast(
+                Tool | None,
+                await load_mcp_tool(
+                    self.session,
+                    self.settings,
+                    run.owner_user_id,
+                    tool_id,
+                ),
+            )
+        return None
 
     async def _events(self, run_id: str) -> list[AgentEvent]:
         return list(
@@ -1237,6 +1260,75 @@ def _extract_expression(owner_request: str) -> str:
     if not expression:
         return "0"
     return expression
+
+
+def _plan_mcp_tool(owner_request: str, allowed_tools: tuple[str, ...]) -> PlannedToolCall | None:
+    text = owner_request.casefold()
+    if "mcp" not in text:
+        return None
+    for tool_id in allowed_tools:
+        if not tool_id.startswith(MCP_TOOL_ID_PREFIX):
+            continue
+        try:
+            _, tool_name = parse_mcp_tool_id(tool_id)
+        except MCPClientError:
+            continue
+        if tool_name.casefold() not in text and "tool" not in text:
+            continue
+        return PlannedToolCall(
+            tool_id=tool_id,
+            arguments=_extract_mcp_arguments(owner_request, tool_name),
+            reason="Owner requested an explicitly allowlisted MCP tool.",
+        )
+    return None
+
+
+def _extract_mcp_arguments(owner_request: str, tool_name: str) -> dict[str, Any]:
+    parsed = _extract_first_json_object(owner_request)
+    if parsed is not None:
+        return parsed
+    if tool_name == "echo":
+        return {"text": owner_request[:200]}
+    if tool_name == "add":
+        numbers = [float(item) for item in re.findall(r"-?\d+(?:\.\d+)?", owner_request)[:2]]
+        if len(numbers) == 2:
+            return {"a": numbers[0], "b": numbers[1]}
+        return {"a": 0, "b": 0}
+    if "search" in tool_name:
+        return {"query": owner_request[:120]}
+    return {}
+
+
+def _extract_first_json_object(value: str) -> dict[str, Any] | None:
+    start = value.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escaped = False
+    for index, char in enumerate(value[start:], start=start):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    parsed = json.loads(value[start : index + 1])
+                except json.JSONDecodeError:
+                    return None
+                return parsed if isinstance(parsed, dict) else None
+    return None
 
 
 def _title_from_request(owner_request: str) -> str:

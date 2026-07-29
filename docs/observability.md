@@ -2,7 +2,8 @@
 
 Phase 5 adds privacy-safe product observability for API requests, retrieval,
 model generations, agent state transitions, tool calls, approvals, ingestion
-stages, owner feedback, and deterministic evaluations.
+stages, owner feedback, and deterministic evaluations. Phase 6 extends the same
+span model to MCP registry, connection, discovery, policy, and execution events.
 
 ## Telemetry Data Policy
 
@@ -13,11 +14,13 @@ Safe metadata may be captured by default:
 - retrieval mode, limits, counts, selected-context counts, warning counts, and latency;
 - provider and model names, prompt IDs and versions, token totals, and estimated cost;
 - ingestion stages, parser names, chunk counts, embedding counts, and safe error codes.
+- MCP server IDs, capability IDs, tool names, risk classes, schema hashes, policy
+  decisions, output truncation flags, and safe error codes.
 
 Potentially sensitive values are either dropped or only represented as bounded metadata:
 
 - prompts, model responses, retrieved excerpts, document filenames, owner comments, user
-  agents, tool arguments, tool outputs, and parser metadata.
+  agents, tool arguments, tool outputs, MCP results, and parser metadata.
 
 Secrets must never be captured:
 

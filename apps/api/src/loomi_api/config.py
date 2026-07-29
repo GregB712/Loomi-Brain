@@ -79,6 +79,13 @@ class Settings(BaseSettings):
     observability_max_field_chars: int = 600
     observability_retention_days: int = 14
     observability_export_timeout_seconds: float = 0.4
+    mcp_enabled: bool = True
+    mcp_allow_private_networks: bool = False
+    mcp_default_connection_timeout_seconds: int = 5
+    mcp_default_tool_timeout_seconds: int = 10
+    mcp_default_output_size_limit: int = 12_000
+    mcp_max_stdio_stdout_bytes: int = 128_000
+    mcp_max_stdio_stderr_bytes: int = 32_000
 
     @model_validator(mode="after")
     def validate_auth_settings(self) -> Self:
@@ -97,6 +104,8 @@ class Settings(BaseSettings):
                 raise ValueError("LOOMI_OBSERVABILITY_SAMPLE_RATE must be <= 0.25 in production")
             if not self.observability_local_only and self.observability_exporter == "local_file":
                 raise ValueError("External production observability needs an external exporter")
+            if self.mcp_allow_private_networks:
+                raise ValueError("LOOMI_MCP_ALLOW_PRIVATE_NETWORKS must be false in production")
         return self
 
 

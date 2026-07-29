@@ -46,6 +46,15 @@ def canonical_args_hash(payload: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
 
 
+def canonical_tool_args_hash(tool: Tool, arguments: dict[str, Any]) -> str:
+    payload_factory = getattr(tool, "approval_hash_payload", None)
+    if callable(payload_factory):
+        payload = payload_factory(arguments)
+        if isinstance(payload, dict):
+            return canonical_args_hash(payload)
+    return canonical_args_hash(arguments)
+
+
 def sanitize_value(value: Any, *, string_limit: int = 1200, depth: int = 0) -> Any:
     if depth > 8:
         return "[truncated-depth]"

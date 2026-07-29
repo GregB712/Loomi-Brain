@@ -1306,6 +1306,265 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.mcp-login-row,
+.mcp-form,
+.mcp-policy-editor,
+.mcp-editor-actions,
+.mcp-card-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.mcp-login-row {
+  grid-template-columns: minmax(180px, 260px) minmax(180px, 260px) auto auto;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.mcp-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(420px, 1fr) minmax(
+      300px,
+      380px
+    );
+  gap: 16px;
+}
+
+.mcp-panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.mcp-panel > .section-header,
+.mcp-panel > .mcp-form,
+.mcp-panel > .empty-copy,
+.mcp-panel > .mcp-approval,
+.mcp-panel > .mcp-audit-table {
+  padding: 14px;
+}
+
+.mcp-panel-wide {
+  min-height: 620px;
+}
+
+.mcp-form label,
+.mcp-policy-editor label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mcp-login-row input,
+.mcp-form input,
+.mcp-form textarea,
+.mcp-policy-editor input,
+.mcp-policy-editor textarea,
+.mcp-policy-editor select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px 10px;
+  color: var(--ink);
+}
+
+.mcp-form textarea,
+.mcp-policy-editor textarea {
+  resize: vertical;
+}
+
+.button-primary,
+.button-secondary,
+.mcp-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.button-primary {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.button-secondary,
+.mcp-card-actions button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.button-primary:disabled,
+.button-secondary:disabled,
+.mcp-card-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.error-banner {
+  margin-bottom: 18px;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  background: var(--red-soft);
+  padding: 12px 14px;
+  color: var(--red);
+  font-weight: 700;
+}
+
+.empty-copy,
+.mcp-muted,
+.mcp-description,
+.mcp-error-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.mcp-error-text {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.mcp-server-list,
+.mcp-capability-list,
+.mcp-audit-table {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.mcp-server-card,
+.mcp-capability,
+.mcp-approval {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 72%);
+  padding: 12px;
+}
+
+.mcp-server-card.is-active {
+  border-color: var(--teal);
+  box-shadow: inset 3px 0 0 var(--teal);
+}
+
+.mcp-server-card p,
+.mcp-approval p {
+  margin: 0;
+}
+
+.mcp-server-select {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.mcp-server-select span:first-child {
+  overflow-wrap: anywhere;
+  font-weight: 760;
+}
+
+.mcp-card-actions {
+  grid-template-columns: repeat(4, 38px);
+}
+
+.mcp-card-actions button {
+  width: 38px;
+  padding: 0;
+}
+
+.mcp-connection,
+.mcp-risk,
+.mcp-approval-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.mcp-connection.compact {
+  justify-content: flex-end;
+}
+
+.mcp-capability-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.mcp-policy-editor {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.mcp-toggle {
+  align-content: end;
+  grid-template-columns: 18px auto;
+  min-height: 38px;
+}
+
+.mcp-editor-wide {
+  grid-column: 1 / -1;
+}
+
+.mcp-editor-actions {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, max-content);
+}
+
+.mcp-json {
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  padding: 10px;
+  font-size: 0.76rem;
+  white-space: pre-wrap;
+}
+
+.mcp-audit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 160px);
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+.mcp-audit-row code {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -1340,7 +1599,9 @@ button:disabled {
   .chat-grid,
   .runs-layout,
   .observability-layout,
-  .observability-grid {
+  .observability-grid,
+  .mcp-layout,
+  .mcp-login-row {
     grid-template-columns: 1fr;
   }
 
@@ -1406,8 +1667,11 @@ button:disabled {
   .composer-actions,
   .feedback-row,
   .run-stat-grid,
-  .tool-json-grid {
+  .tool-json-grid,
+  .mcp-policy-editor,
+  .mcp-audit-row {
     display: grid;
+    grid-template-columns: 1fr;
   }
 
   .chat-thread {

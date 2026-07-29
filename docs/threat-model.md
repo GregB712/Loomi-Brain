@@ -335,6 +335,31 @@ inline redaction in persisted run history.
 - Result sanitization and truncation.
 - No arbitrary shell command strings from browser.
 
+Phase 6 implemented controls:
+
+- Browser requests can select only server-side stdio templates; executable paths
+  and shell command strings are not accepted.
+- Streamable HTTP endpoints are validated before use. Loomi blocks URL userinfo,
+  non-HTTP(S) schemes, redirects, loopback/private/link-local/metadata/multicast/
+  reserved destinations, and HTTPS downgrade outside local/test mode.
+- MCP metadata is sanitized and cached as untrusted display data. Discovered
+  capabilities remain disabled until the owner explicitly enables each tool.
+- Tool approvals include the stored schema hash, so schema changes invalidate
+  stale approval.
+- Stdio subprocesses receive a minimal environment, fixed arguments, startup and
+  execution timeouts, bounded stdout/stderr, and process-group termination on
+  timeout.
+- MCP execution writes audit events and sanitized telemetry spans.
+
+Residual risks:
+
+- The built-in stdio controls are not a complete sandbox. Production deployments
+  should run stdio servers under separate users/containers with seccomp/AppArmor,
+  read-only filesystems, CPU/memory limits, and explicit egress policy.
+- Remote server trust is still administrative. A malicious but allowlisted remote
+  server can return deceptive data; the agent runtime must continue treating all
+  results as untrusted tool data.
+
 ### Agent Runtime
 
 - Internal runtime protocol and code-owned state machine.

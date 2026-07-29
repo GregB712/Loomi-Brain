@@ -2,7 +2,11 @@
 
 ## Scope
 
-Phase 5 stores synthetic owner-uploaded documents, extracted text chunks, deterministic fake embeddings, parser metadata, job logs, audit events, sanitized telemetry spans, owner feedback metadata, and deterministic evaluation reports. Do not use real personal documents or credentials for demos.
+Phase 6 stores synthetic owner-uploaded documents, extracted text chunks,
+deterministic fake embeddings, parser metadata, job logs, audit events,
+sanitized telemetry spans, owner feedback metadata, deterministic evaluation
+reports, MCP server registry records, and sanitized MCP capability metadata. Do
+not use real personal documents or credentials for demos.
 
 ## Storage
 
@@ -11,6 +15,9 @@ Phase 5 stores synthetic owner-uploaded documents, extracted text chunks, determ
 - Files are not stored in web/static paths.
 - Chunks and embeddings remain private database records scoped to `owner_user_id`.
 - Deleting a document deletes source objects, document versions, ingestion jobs, chunks, embeddings, and document tag links.
+- MCP server credentials are stored as secret references, not browser-visible
+  plaintext values. Capability metadata and tool output are untrusted and
+  bounded before persistence/UI display.
 
 ## Logs And Telemetry
 
@@ -25,6 +32,11 @@ prompt templates or document context.
 Local telemetry defaults to `local_file` under `LOOMI_STORAGE_ROOT/observability`.
 External OTLP or Langfuse export is opt-in and best effort; exporter outages record a
 safe status but do not break product requests.
+
+MCP telemetry captures server IDs, capability IDs, tool names, risk classes,
+schema hashes, policy outcomes, durations, status, and truncation flags. It must
+not capture secret values, bearer headers, unrestricted tool arguments, or full
+tool results.
 
 ## Previews
 

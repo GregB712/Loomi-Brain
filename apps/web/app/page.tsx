@@ -24,7 +24,7 @@ const navigation = [
   { label: "Search", icon: Search, href: "/search" },
   { label: "Runs", icon: Workflow, href: "/runs" },
   { label: "Skills", icon: Sparkles, href: "#" },
-  { label: "MCP", icon: Plug, href: "#" },
+  { label: "MCP", icon: Plug, href: "/mcp" },
   { label: "Observability", icon: Activity, href: "/observability" },
   { label: "Settings", icon: KeyRound, href: "#" },
 ];
@@ -73,7 +73,7 @@ const runs = [
     title: "MCP safety",
     meta: "Registry and approval policy defined in ADR 0005",
     tone: "neutral" as const,
-    status: "Planned",
+    status: "Ready",
   },
 ];
 
@@ -129,8 +129,8 @@ export default function DashboardPage() {
             aria-label="Environment status"
           >
             <p className="panel-label">Phase</p>
-            <p className="panel-value">Agent Runtime</p>
-            <StatusPill tone="good">Phase 4</StatusPill>
+            <p className="panel-value">MCP Boundary</p>
+            <StatusPill tone="good">Phase 6</StatusPill>
           </section>
         </header>
 

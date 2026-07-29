@@ -56,6 +56,9 @@ Terminal states are `complete`, `cancelled`, and `failed`.
 - All event payloads are sanitized before persistence.
 - Phase 5 records sanitized telemetry spans for state transitions, tool calls, approvals,
   prompt IDs/versions, usage, latency, and safe error codes.
+- Phase 6 resolves dynamic MCP tool IDs (`mcp::<server_id>::<tool_name>`) only after
+  checking the owner-scoped MCP registry. MCP approval hashes include the stored tool
+  schema hash, so changed schemas invalidate stale approvals.
 
 ## API
 

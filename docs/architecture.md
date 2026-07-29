@@ -354,6 +354,17 @@ Loomi-Brain is an MCP client, not an unrestricted proxy. The model never receive
 
 MCP servers are configured by the owner through registry records. Stdio servers use administrator-defined executable and argument templates, a minimal environment, restricted working directories, output-size caps, and no shell metacharacter expansion. Streamable HTTP servers require allowed origins, authentication where supported, size limits, timeouts, and protocol-version handling.
 
+Phase 6 implements this boundary under `loomi_api.mcp_client`. The selected
+protocol target is `2026-07-28`. The first implementation keeps the client
+boundary in-repo rather than adding an SDK dependency, supports stdio and
+Streamable HTTP JSON-RPC, and exposes only `server/discover`, capability lists,
+and `tools/call`.
+
+Discovered tools, resources, and prompts are cached as untrusted metadata in
+`mcp_capabilities`. Tools are disabled by default. Enabled tool IDs are dynamic
+Phase 4 tool IDs in the form `mcp::<server_id>::<tool_name>`, and all execution
+goes through the existing agent runtime, approval, audit, and telemetry path.
+
 Tool risk classes:
 
 - read-only

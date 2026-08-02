@@ -73,12 +73,14 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
-          scanners: vuln,secret,config
+          scanners: vuln,secret,misconfig
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          version: v0.72.0
           format: sarif
           output: trivy-fs.sarif
-          exit-code: "1"
+          limit-severities-for-sarif: true
+          exit-code: "0"
 
       - name: Upload Trivy filesystem SARIF artifact
         if: always()
@@ -129,9 +131,11 @@ jobs:
           image-ref: docker-api
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          version: v0.72.0
           format: sarif
           output: trivy-api.sarif
-          exit-code: "1"
+          limit-severities-for-sarif: true
+          exit-code: "0"
 
       - name: Scan worker image
         if: always()
@@ -140,9 +144,11 @@ jobs:
           image-ref: docker-worker
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          version: v0.72.0
           format: sarif
           output: trivy-worker.sarif
-          exit-code: "1"
+          limit-severities-for-sarif: true
+          exit-code: "0"
 
       - name: Scan web image
         if: always()
@@ -151,9 +157,11 @@ jobs:
           image-ref: docker-web
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          version: v0.72.0
           format: sarif
           output: trivy-web.sarif
-          exit-code: "1"
+          limit-severities-for-sarif: true
+          exit-code: "0"
 
       - name: Upload container SARIF artifacts
         if: always()

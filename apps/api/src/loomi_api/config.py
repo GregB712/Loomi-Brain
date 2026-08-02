@@ -79,6 +79,30 @@ class Settings(BaseSettings):
     model_max_input_tokens: int = 6000
     model_max_output_tokens: int = 800
     model_max_estimated_cost_usd: float = 0.25
+    voice_stt_provider: Literal["mock", "openai", "local-compatible"] = "mock"
+    voice_stt_model: str = "loomi-mock-transcribe-v1"
+    voice_tts_provider: Literal["browser", "mock", "openai", "local-compatible"] = "browser"
+    voice_tts_model: str = "loomi-browser-speech-synthesis"
+    voice_tts_voice: str = "alloy"
+    voice_language: str = "en"
+    voice_max_recording_seconds: int = 60
+    voice_max_audio_bytes: int = 5 * 1024 * 1024
+    voice_transcript_review_enabled: bool = True
+    voice_auto_speak_assistant: bool = False
+    voice_retain_raw_audio: bool = False
+    voice_retention_days: int = 0
+    voice_demo_mode: bool = True
+    voice_cloud_enabled: bool = False
+    voice_mock_transcript: str = "What method does hybrid search use?"
+    voice_openai_stt_model: str = "gpt-4o-mini-transcribe"
+    voice_openai_tts_model: str = "gpt-4o-mini-tts"
+    voice_local_stt_base_url: str | None = None
+    voice_local_tts_base_url: str | None = None
+    voice_local_api_key: SecretStr | None = None
+    voice_rate_limit_attempts: int = 20
+    voice_rate_limit_window_seconds: int = 60
+    voice_tts_max_chars: int = 4096
+    voice_tts_max_audio_bytes: int = 6 * 1024 * 1024
     extraction_engine: Literal["builtin", "docling"] = "builtin"
     scanner_mode: Literal["fake-clean", "fake-reject", "unavailable"] = "fake-clean"
     scanner_required: bool = False
@@ -114,6 +138,18 @@ class Settings(BaseSettings):
             raise ValueError("LOOMI_AUTH_LOGIN_RATE_LIMIT_ATTEMPTS must be >= 1")
         if self.auth_login_rate_limit_window_seconds < 1:
             raise ValueError("LOOMI_AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS must be >= 1")
+        if self.voice_max_recording_seconds < 1:
+            raise ValueError("LOOMI_VOICE_MAX_RECORDING_SECONDS must be >= 1")
+        if self.voice_max_audio_bytes < 1024:
+            raise ValueError("LOOMI_VOICE_MAX_AUDIO_BYTES must be >= 1024")
+        if self.voice_rate_limit_attempts < 1:
+            raise ValueError("LOOMI_VOICE_RATE_LIMIT_ATTEMPTS must be >= 1")
+        if self.voice_rate_limit_window_seconds < 1:
+            raise ValueError("LOOMI_VOICE_RATE_LIMIT_WINDOW_SECONDS must be >= 1")
+        if self.voice_tts_max_chars < 1 or self.voice_tts_max_chars > 4096:
+            raise ValueError("LOOMI_VOICE_TTS_MAX_CHARS must be between 1 and 4096")
+        if self.voice_retain_raw_audio and self.voice_retention_days < 1:
+            raise ValueError("LOOMI_VOICE_RETENTION_DAYS must be >= 1 when audio retention is on")
         if self.environment == "production":
             if self.owner_password.get_secret_value() == DEFAULT_LOCAL_OWNER_PASSWORD:
                 raise ValueError("LOOMI_OWNER_PASSWORD must be set in production")
@@ -133,6 +169,8 @@ class Settings(BaseSettings):
                 raise ValueError("External production observability needs an external exporter")
             if self.mcp_allow_private_networks:
                 raise ValueError("LOOMI_MCP_ALLOW_PRIVATE_NETWORKS must be false in production")
+            if self.voice_retain_raw_audio and self.voice_retention_days < 1:
+                raise ValueError("Raw voice audio retention requires a positive retention window")
         return self
 
 

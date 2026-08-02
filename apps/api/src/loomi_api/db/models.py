@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from loomi_api.db.base import Base, IdMixin, TimestampMixin
@@ -514,6 +514,113 @@ class TelemetrySpan(IdMixin, TimestampMixin, Base):
         Index("ix_telemetry_spans_owner_created", "owner_user_id", "created_at"),
         Index("ix_telemetry_spans_trace_created", "trace_id", "created_at"),
         Index("ix_telemetry_spans_component_name", "component", "name"),
+    )
+
+
+class VoiceSession(IdMixin, TimestampMixin, Base):
+    __tablename__ = "voice_sessions"
+
+    owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    conversation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    message_id: Mapped[str | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(40), default="created")
+    stt_provider: Mapped[str] = mapped_column(String(80))
+    stt_model: Mapped[str] = mapped_column(String(160))
+    tts_provider: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    tts_model: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    tts_voice: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    language: Mapped[str] = mapped_column(String(24), default="en")
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    audio_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    retention_policy: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    request_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_voice_sessions_owner_created", "owner_user_id", "created_at"),
+        Index("ix_voice_sessions_conversation", "conversation_id"),
+        Index("ix_voice_sessions_trace_id", "trace_id"),
+    )
+
+
+class VoiceTranscript(IdMixin, TimestampMixin, Base):
+    __tablename__ = "voice_transcripts"
+
+    voice_session_id: Mapped[str] = mapped_column(
+        ForeignKey("voice_sessions.id", ondelete="CASCADE")
+    )
+    owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    conversation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    message_id: Mapped[str | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
+    )
+    provider: Mapped[str] = mapped_column(String(80))
+    model: Mapped[str] = mapped_column(String(160))
+    language: Mapped[str] = mapped_column(String(24), default="en")
+    transcript_text: Mapped[str] = mapped_column(Text)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    audio_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    trace_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    transcript_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (
+        Index("ix_voice_transcripts_session", "voice_session_id"),
+        Index("ix_voice_transcripts_owner_created", "owner_user_id", "created_at"),
+    )
+
+
+class VoiceAudioAsset(IdMixin, TimestampMixin, Base):
+    __tablename__ = "voice_audio_assets"
+
+    voice_session_id: Mapped[str] = mapped_column(
+        ForeignKey("voice_sessions.id", ondelete="CASCADE")
+    )
+    owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    object_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    media_type: Mapped[str] = mapped_column(String(120))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    retention_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_voice_audio_assets_session", "voice_session_id"),
+        Index("ix_voice_audio_assets_owner_deleted", "owner_user_id", "deleted_at"),
+    )
+
+
+class VoiceProviderEvent(IdMixin, TimestampMixin, Base):
+    __tablename__ = "voice_provider_events"
+
+    voice_session_id: Mapped[str | None] = mapped_column(
+        ForeignKey("voice_sessions.id", ondelete="CASCADE"), nullable=True
+    )
+    owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    event_type: Mapped[str] = mapped_column(String(80))
+    provider: Mapped[str] = mapped_column(String(80))
+    model: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), default="ok")
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    safe_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+
+    __table_args__ = (
+        Index("ix_voice_provider_events_session", "voice_session_id"),
+        Index("ix_voice_provider_events_owner_created", "owner_user_id", "created_at"),
     )
 
 

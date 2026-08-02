@@ -358,6 +358,150 @@ export type ProviderHealth = {
   error_code: string | null;
 };
 
+export type VoiceSettings = {
+  stt_provider: "mock" | "openai" | "local-compatible";
+  stt_model: string;
+  tts_provider: "browser" | "mock" | "openai" | "local-compatible";
+  tts_model: string;
+  tts_voice: string;
+  language: string;
+  max_recording_seconds: number;
+  max_audio_bytes: number;
+  transcript_review_enabled: boolean;
+  auto_speak_assistant: boolean;
+  retain_raw_audio: boolean;
+  retention_days: number;
+  demo_mode: boolean;
+  cloud_enabled: boolean;
+  accepted_mime_types: string[];
+  allowed_tts_voices: string[];
+  openai_configured: boolean;
+  local_stt_configured: boolean;
+  local_tts_configured: boolean;
+};
+
+export type VoiceSettingsPatch = Partial<
+  Pick<
+    VoiceSettings,
+    | "stt_provider"
+    | "stt_model"
+    | "tts_provider"
+    | "tts_model"
+    | "tts_voice"
+    | "language"
+    | "max_recording_seconds"
+    | "max_audio_bytes"
+    | "transcript_review_enabled"
+    | "auto_speak_assistant"
+    | "retain_raw_audio"
+    | "retention_days"
+    | "demo_mode"
+    | "cloud_enabled"
+  >
+>;
+
+export type VoiceTranscriptionResponse = {
+  session_id: string;
+  transcript_id: string;
+  text: string;
+  language: string;
+  confidence: number | null;
+  provider: string;
+  model: string;
+  duration_ms: number | null;
+  audio_size_bytes: number;
+  retained_audio: boolean;
+  mocked: boolean;
+  request_id: string;
+  trace_id: string;
+};
+
+export type VoiceTTSResponse = {
+  audio_base64: string;
+  content_type: string;
+  provider: string;
+  model: string;
+  voice: string;
+  mocked: boolean;
+  request_id: string;
+  trace_id: string;
+};
+
+export type VoiceSessionSummary = {
+  id: string;
+  conversation_id: string | null;
+  message_id: string | null;
+  status: string;
+  stt_provider: string;
+  stt_model: string;
+  tts_provider: string | null;
+  tts_model: string | null;
+  tts_voice: string | null;
+  language: string;
+  duration_ms: number | null;
+  audio_size_bytes: number;
+  retention_policy: Record<string, unknown>;
+  request_id: string | null;
+  trace_id: string | null;
+  error_code: string | null;
+  error_detail: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  cancelled_at: string | null;
+};
+
+export type VoiceSessionListResponse = {
+  items: VoiceSessionSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type VoiceTranscript = {
+  id: string;
+  provider: string;
+  model: string;
+  language: string;
+  text: string;
+  confidence: number | null;
+  duration_ms: number | null;
+  audio_size_bytes: number;
+  trace_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type VoiceAudioAsset = {
+  id: string;
+  media_type: string;
+  size_bytes: number;
+  sha256: string;
+  retained: boolean;
+  retention_expires_at: string | null;
+  deleted_at: string | null;
+  created_at: string;
+};
+
+export type VoiceProviderEvent = {
+  id: string;
+  event_type: string;
+  provider: string;
+  model: string | null;
+  status: string;
+  latency_ms: number | null;
+  metadata: Record<string, unknown>;
+  error_code: string | null;
+  trace_id: string | null;
+  created_at: string;
+};
+
+export type VoiceSessionDetail = VoiceSessionSummary & {
+  transcripts: VoiceTranscript[];
+  audio_assets: VoiceAudioAsset[];
+  provider_events: VoiceProviderEvent[];
+};
+
 export type ObservabilityStatus = {
   enabled: boolean;
   exporter: string;
@@ -989,6 +1133,94 @@ export function createLoomiClient(apiBase: string) {
     },
     providerHealth() {
       return request<ProviderHealth[]>(apiBase, "/api/v1/providers/health");
+    },
+    getVoiceSettings() {
+      return request<VoiceSettings>(apiBase, "/api/v1/voice/settings");
+    },
+    updateVoiceSettings(csrfToken: string, payload: VoiceSettingsPatch) {
+      return request<VoiceSettings>(apiBase, "/api/v1/voice/settings", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify(payload),
+      });
+    },
+    transcribeVoice(
+      csrfToken: string,
+      audio: Blob,
+      options: {
+        conversationId?: string | null;
+        durationMs?: number | null;
+        filename?: string;
+      } = {},
+    ) {
+      const form = new FormData();
+      form.append("audio", audio, options.filename ?? "voice.webm");
+      if (options.conversationId) {
+        form.append("conversation_id", options.conversationId);
+      }
+      if (options.durationMs !== null && options.durationMs !== undefined) {
+        form.append("duration_ms", String(Math.round(options.durationMs)));
+      }
+      return request<VoiceTranscriptionResponse>(
+        apiBase,
+        "/api/v1/voice/transcribe",
+        {
+          method: "POST",
+          headers: { "x-csrf-token": csrfToken },
+          body: form,
+        },
+      );
+    },
+    synthesizeVoice(
+      csrfToken: string,
+      payload: {
+        text: string;
+        provider?: "mock" | "openai" | "local-compatible" | null;
+        model?: string | null;
+        voice?: string | null;
+        speed?: number;
+      },
+    ) {
+      return request<VoiceTTSResponse>(apiBase, "/api/v1/voice/tts", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify(payload),
+      });
+    },
+    listVoiceSessions(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<VoiceSessionListResponse>(
+        apiBase,
+        `/api/v1/voice/sessions${query ? `?${query}` : ""}`,
+      );
+    },
+    getVoiceSession(sessionId: string) {
+      return request<VoiceSessionDetail>(
+        apiBase,
+        `/api/v1/voice/sessions/${sessionId}`,
+      );
+    },
+    deleteVoiceSession(sessionId: string, csrfToken: string) {
+      return request<void>(apiBase, `/api/v1/voice/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: { "x-csrf-token": csrfToken },
+      });
+    },
+    deleteVoiceSessionAudio(sessionId: string, csrfToken: string) {
+      return request<{ deleted_count: number }>(
+        apiBase,
+        `/api/v1/voice/sessions/${sessionId}/audio`,
+        {
+          method: "DELETE",
+          headers: { "x-csrf-token": csrfToken },
+        },
+      );
     },
     listMcpTemplates() {
       return request<{ items: Array<{ name: string; description: string }> }>(

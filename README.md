@@ -1,6 +1,6 @@
 # Loomi-Brain
 
-Owner-only AI second brain for private knowledge ingestion, hybrid retrieval, cited chat, controlled agent runs, MCP integrations, observability, deterministic evaluation, and declarative skills.
+Owner-only AI second brain for private knowledge ingestion, hybrid retrieval, cited chat, voice conversation, controlled agent runs, MCP integrations, observability, deterministic evaluation, and declarative skills.
 
 Loomi-Brain is built as a portfolio-grade full-stack AI platform: a Next.js web app, FastAPI API, background worker, PostgreSQL with pgvector, private object storage, provider-neutral model gateway, approval-gated tools, and safety-first MCP/skill boundaries. The default demo uses synthetic data and mock model output, so reviewers can run the system without paid provider keys or personal documents.
 
@@ -10,6 +10,7 @@ Loomi-Brain is built as a portfolio-grade full-stack AI platform: a Next.js web 
 - Private document ingestion with size limits, MIME validation, safe filenames, parser limits, fake/local scanner mode, chunk provenance, deterministic embeddings, and complete document deletion.
 - Lexical, semantic, and hybrid search with reciprocal rank fusion.
 - Streamed cited chat with provider adapters, citation validation, no-answer behavior, cancellation, and owner feedback.
+- Voice Mode with explicit microphone activation, deterministic mock STT, transcript review/edit, existing cited-chat handoff, optional TTS, session traces, and raw-audio retention off by default.
 - Controlled agent runtime with explicit states, tool allowlists, approval binding, audit history, cancellation, and a run inspector.
 - MCP registry with deny-by-default capability discovery, schema-hash-bound approvals, stdio templates, and safe Streamable HTTP validation.
 - Declarative skills with strict manifests, immutable published versions, template restrictions, dry-run previews, deterministic tests, and runtime policy intersection.
@@ -37,6 +38,8 @@ flowchart LR
   Agent --> MCP[MCP Boundary]
   Agent --> Skills[Skills]
   API --> Obs[Observability]
+  Web --> Voice[Voice Capture]
+  Voice --> API
 ```
 
 ```mermaid
@@ -73,6 +76,10 @@ sequenceDiagram
   Web->>API: Search or chat
   API->>DB: Retrieve owner-scoped chunks
   API-->>Web: Stream cited answer events
+  Owner->>Web: Explicitly start voice recording
+  Web->>API: POST voice audio with CSRF
+  API-->>Web: Transcript for review
+  Web->>API: Submit transcript to cited chat
 ```
 
 ## Quick Start
@@ -102,11 +109,12 @@ Production rejects the default local password, insecure cookies, wildcard CORS, 
 2. Open Knowledge and upload synthetic Markdown, text, CSV, PDF, or image files.
 3. Search in lexical, semantic, and hybrid modes.
 4. Ask a cited question in Chat and inspect the streamed answer.
-5. Open Runs and review agent state, tool policy, usage, and approvals.
-6. Open MCP, register the built-in harmless test server, enable an exact tool, and invoke it.
-7. Open Skills, create a draft skill, run a deterministic test, publish it, and execute it through the runtime.
-8. Open Observability and review sanitized spans, retrieval diagnostics, feedback, and evaluation status.
-9. Run deterministic evaluation:
+5. Enable Voice Mode in Chat, record a mock transcript, edit it, and send it through the same cited-chat stream.
+6. Open Runs and review agent state, tool policy, usage, and approvals.
+7. Open MCP, register the built-in harmless test server, enable an exact tool, and invoke it.
+8. Open Skills, create a draft skill, run a deterministic test, publish it, and execute it through the runtime.
+9. Open Observability and review sanitized spans, retrieval diagnostics, feedback, and evaluation status.
+10. Run deterministic evaluation:
 
 ```bash
 make eval
@@ -174,6 +182,7 @@ Restore and deletion scripts require explicit confirmation environment variables
 - [Local deployment](docs/local-deployment.md)
 - [Cloud deployment](docs/cloud-configuration.md)
 - [Private and hybrid deployment](docs/private-hybrid-deployment.md)
+- [Voice Mode](docs/voice.md)
 - [Operations runbook](docs/operations-runbook.md)
 - [Backup and restore](docs/backup-restore.md)
 - [Incident response](docs/incident-response.md)
@@ -199,7 +208,7 @@ Use synthetic data only:
 
 ## Security Model
 
-All document text, retrieved context, model output, MCP metadata, MCP tool output, and skill manifests are untrusted. Provider keys never go to the browser. Tool execution is server-side, allowlisted, approval-gated when risky, and bound to exact canonical arguments. Skills cannot install packages, execute shell/Python/JavaScript, or grant undeclared tools. MCP remote endpoints block private-network egress by default.
+All document text, audio, transcripts, retrieved context, model output, MCP metadata, MCP tool output, and skill manifests are untrusted. Provider keys never go to the browser. Tool execution is server-side, allowlisted, approval-gated when risky, and bound to exact canonical arguments. Skills cannot install packages, execute shell/Python/JavaScript, or grant undeclared tools. MCP remote endpoints block private-network egress by default. Voice input cannot approve tools or bypass visual approval controls.
 
 Residual risks are documented in the threat model and release checklist. The largest remaining items are a production-grade distributed rate limiter, stronger worker job durability, live cloud deployment verification, browser E2E/a11y tests, and managed backup restore rehearsal.
 

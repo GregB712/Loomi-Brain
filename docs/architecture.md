@@ -87,6 +87,19 @@ Phase 7 adds safe declarative skills:
   skill trace metadata.
 - Skill Editor web route at `/skills`.
 
+Phase 9 adds secure Voice Mode:
+
+- Browser microphone capture starts only after explicit owner action.
+- `/api/v1/voice` exposes owner-only settings, transcription, TTS, session history,
+  and retained-audio deletion.
+- Speech providers live under `loomi_api.voice`, separate from chat LLM providers.
+- Deterministic mock STT and browser TTS are the default local/demo path.
+- OpenAI and OpenAI-compatible local speech adapters remain server-side and disabled
+  unless configured.
+- Reviewed transcripts are submitted through the existing cited-chat SSE pipeline, so
+  citations, runtime limits, MCP/skill policies, approvals, persistence, and telemetry
+  remain intact.
+
 ## Architecture Overview
 
 Loomi-Brain uses a monorepo with separate web, API, worker, shared UI, shared contracts, infrastructure, tests, scripts, and documentation modules.
@@ -116,6 +129,8 @@ flowchart LR
   API --> Observability[OpenTelemetry + Langfuse]
   Worker --> Observability
   Web --> Observability
+  Web --> Voice[Browser Voice Capture]
+  Voice --> API
 ```
 
 ## Technology Baseline
@@ -220,6 +235,7 @@ All API routes are versioned under `/api/v1`. The same-repo frontend is the firs
 - Skills: drafts, publish, archive, disable, versions, tests, dry-run, import/export.
 - MCP: servers, capabilities, policies, health checks, audit log.
 - Observability: trace summaries, run metrics, ingestion metrics, feedback.
+- Voice: settings, transcription, TTS, sessions, and retained-audio deletion.
 - Evaluations: datasets, runs, results.
 - Data rights: export, deletion, backup metadata.
 
@@ -279,6 +295,13 @@ Phase 5 adds `telemetry_spans` for sanitized trace summaries and extends evaluat
 runs with baseline, threshold, report, regression, and timing metadata. Span attributes
 are allowlisted before persistence/export.
 
+Phase 9 adds `voice_sessions`, `voice_transcripts`, `voice_audio_assets`, and
+`voice_provider_events`. Voice sessions store owner ID, conversation/message links
+where applicable, provider, model, language, duration, audio size, retention policy,
+request ID, trace ID, safe errors, and timestamps. Voice transcripts store
+owner-visible transcript text and safe provider metadata. Voice audio assets exist only
+when raw-audio retention is explicitly enabled.
+
 ## Ingestion Pipeline
 
 ```mermaid
@@ -337,6 +360,19 @@ Phase 2 implements file upload ingestion only. URL import remains out of scope u
 8. Validate citations against selected context.
 9. Stream answer, citations, metrics, warnings, and trace IDs.
 10. Persist conversation, messages, run state, run events, citations, and feedback hooks.
+
+## Voice Flow
+
+1. Owner explicitly starts recording in the browser.
+2. Browser requests microphone permission and records through `MediaRecorder`.
+3. Browser enforces max duration and sends audio over authenticated HTTPS with CSRF.
+4. API validates owner session, conversation ownership, MIME type, size, duration
+   metadata, rate limits, and provider configuration.
+5. API stores raw audio only when retention is enabled.
+6. API calls the configured STT provider and records privacy-safe spans/events.
+7. Owner reviews/edits the transcript by default.
+8. Transcript is sent through the existing cited-chat SSE endpoint.
+9. Optional TTS reads only visible assistant answer text and can be stopped immediately.
 
 ## Agent State Machine
 

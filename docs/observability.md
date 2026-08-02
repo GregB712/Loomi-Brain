@@ -4,6 +4,7 @@ Phase 5 adds privacy-safe product observability for API requests, retrieval,
 model generations, agent state transitions, tool calls, approvals, ingestion
 stages, owner feedback, and deterministic evaluations. Phase 6 extends the same
 span model to MCP registry, connection, discovery, policy, and execution events.
+Phase 9 adds voice transcription and TTS spans.
 
 ## Telemetry Data Policy
 
@@ -16,11 +17,14 @@ Safe metadata may be captured by default:
 - ingestion stages, parser names, chunk counts, embedding counts, and safe error codes.
 - MCP server IDs, capability IDs, tool names, risk classes, schema hashes, policy
   decisions, output truncation flags, and safe error codes.
+- voice provider/model/language, voice session IDs, audio duration, audio size, TTS
+  voice, status, latency, request IDs, trace IDs, and safe error codes.
 
 Potentially sensitive values are either dropped or only represented as bounded metadata:
 
 - prompts, model responses, retrieved excerpts, document filenames, owner comments, user
   agents, tool arguments, tool outputs, MCP results, and parser metadata.
+- raw audio, unrestricted voice transcripts, and unrestricted synthesized audio.
 
 Secrets must never be captured:
 

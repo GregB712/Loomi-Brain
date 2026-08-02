@@ -447,6 +447,32 @@ Residual Phase 8 risks:
 - Cloud deployment, managed backup restore, and private connector behavior must
   be verified by the owner before production claims.
 
+Phase 9 voice controls:
+
+- Microphone capture starts only after explicit owner action; no always-on listening and
+  no wake-word detection are implemented.
+- Voice routes are owner-only and CSRF-protected for mutations.
+- Audio uploads enforce MIME allowlists, max size, max duration metadata, provider
+  timeouts, rate limits, and safe provider-error normalization.
+- Raw audio is not persisted by default. If retention is enabled, retained audio is
+  stored as a private object and can be deleted through the owner-only audio deletion
+  endpoint.
+- Cloud STT/TTS remains disabled unless the owner explicitly enables it and server-side
+  credentials are configured.
+- Transcripts are owner input, reviewed by default, and submitted through the existing
+  cited-chat path. Voice cannot approve tool calls, MCP invocations, skill executions,
+  destructive actions, or credential-sensitive operations.
+- TTS reads only visible assistant answer text and rejects secret-like text.
+
+Residual Phase 9 risks:
+
+- Browser microphone permissions and device selection are browser-controlled.
+- Audio duration is enforced from client metadata in this phase; precise server-side
+  media-duration parsing is deferred.
+- Realtime speech-to-speech and local wake-word detection are out of scope.
+- Browser E2E must mock microphone and playback APIs unless the environment supports
+  real media devices.
+
 ### Observability
 
 - Correlation IDs across web, API, worker, agent, and provider calls.
@@ -488,6 +514,8 @@ The test suite must include:
 - Expired or revoked sessions.
 - No citation fabrication.
 - Tool approval enforcement.
+- Voice transcription auth, MIME, size, duration, retention, deletion, cloud-disabled,
+  mock STT/TTS, and TTS voice allowlist enforcement.
 - Max-step enforcement.
 - Provider timeout and failure handling.
 - Streaming cancellation.

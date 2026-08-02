@@ -381,6 +381,34 @@ Acceptance criteria:
 - Backup and restore procedures are tested locally.
 - CI passes all required checks.
 
+## Phase 9: Voice Mode
+
+Status: implemented.
+
+Goal: authenticated owner can speak a question, review/edit the transcript, submit it
+through cited chat, and optionally hear visible assistant answers.
+
+Work items:
+
+1. Voice provider contracts for STT, TTS, settings, session service, and retention.
+2. Mock STT/TTS, OpenAI speech adapter, and OpenAI-compatible local adapter.
+3. Owner-only voice settings, transcription, TTS, session, and audio-deletion APIs.
+4. Voice session/transcript/audio/provider-event persistence.
+5. Chat workspace voice UI with explicit recording, push-to-talk/click modes, audio
+   level meter, transcript review/edit, playback controls, and privacy notices.
+6. Privacy-safe voice spans/events.
+7. Tests and docs for mock, cloud-disabled, local-compatible, retention, and limits.
+
+Acceptance criteria:
+
+- Recording starts only after explicit owner action.
+- Mock transcription returns deterministic CI/demo text.
+- Reviewed transcript is sent through the existing cited-chat SSE pipeline.
+- Raw audio is not stored by default and retained audio can be deleted.
+- Cloud speech is disabled unless explicitly configured.
+- Voice cannot bypass owner auth, CSRF, tool approvals, MCP policy, skill policy, or
+  runtime limits.
+
 ## Proposed Directory Tree
 
 ```text

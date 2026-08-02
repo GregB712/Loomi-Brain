@@ -16,6 +16,9 @@ Recommended defaults:
 - Keep provider keys in server-side environment variables or secret stores.
 - Run backups before updates and rehearse restore against development data.
 - Keep vLLM on the private host or private network only.
+- Keep local STT/TTS services on the private host or private network only. Use
+  `LOOMI_VOICE_LOCAL_STT_BASE_URL` and `LOOMI_VOICE_LOCAL_TTS_BASE_URL` for
+  OpenAI-compatible local speech endpoints.
 
 ## Option B: Cloud Web/API With Private Inference
 
@@ -27,6 +30,7 @@ This repository does not ship a generic public-to-private inference proxy. A saf
 - Enforce allowlisted methods and paths.
 - Prevent arbitrary proxying.
 - Set request, response, and stream limits.
+- Set audio upload and speech response limits at the connector boundary.
 - Set connection and total timeouts.
 - Restrict source and destination networks.
 - Log redacted request metadata and failure state.
@@ -37,6 +41,8 @@ If those controls are not implemented, use cloud providers or the local/private 
 ## Failure Behavior
 
 - Private inference offline: model requests fail with a structured provider error; document/search functions remain available.
+- Private speech offline: voice transcription/TTS fails with a structured provider
+  error; typed chat and search remain available.
 - Connector timeout: retry only within configured model retry limits.
 - Unauthorized connector request: reject and audit.
 - Unexpected method/path: reject and audit.

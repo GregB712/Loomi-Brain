@@ -96,7 +96,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         response.headers["x-frame-options"] = "DENY"
         response.headers["referrer-policy"] = "no-referrer"
         response.headers["permissions-policy"] = (
-            "camera=(), microphone=(), geolocation=(), payment=()"
+            "camera=(), microphone=(self), geolocation=(), payment=()"
         )
         response.headers["content-security-policy"] = self._settings.csp_policy
         if self._settings.environment == "production":

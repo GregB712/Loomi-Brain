@@ -31,6 +31,9 @@ LOOMI_CHAT_PROVIDER=openai-compatible
 LOOMI_CHAT_MODEL=<approved-model>
 LOOMI_OPENAI_COMPATIBLE_BASE_URL=<server-side-url>
 LOOMI_OPENAI_COMPATIBLE_API_KEY=<secret-reference>
+LOOMI_VOICE_CLOUD_ENABLED=false
+LOOMI_VOICE_STT_PROVIDER=mock
+LOOMI_VOICE_TTS_PROVIDER=browser
 LOOMI_OBSERVABILITY_ENABLED=true
 LOOMI_OBSERVABILITY_EXPORTER=otlp_http
 LOOMI_OBSERVABILITY_EXPORTER_ENDPOINT=<collector-endpoint>
@@ -41,6 +44,24 @@ LOOMI_MCP_ALLOW_PRIVATE_NETWORKS=false
 ```
 
 Provider keys must never use `NEXT_PUBLIC_` variables.
+
+## Cloud Voice
+
+Cloud voice should be enabled only after the owner accepts provider data-processing and
+cost implications:
+
+```text
+LOOMI_OPENAI_API_KEY=<secret-reference>
+LOOMI_VOICE_CLOUD_ENABLED=true
+LOOMI_VOICE_STT_PROVIDER=openai
+LOOMI_VOICE_STT_MODEL=gpt-4o-mini-transcribe
+LOOMI_VOICE_TTS_PROVIDER=openai
+LOOMI_VOICE_TTS_MODEL=gpt-4o-mini-tts
+```
+
+Keep provider keys server-side. Configure API and reverse-proxy payload limits at or
+above `LOOMI_VOICE_MAX_AUDIO_BYTES`, and keep `LOOMI_VOICE_RETAIN_RAW_AUDIO=false`
+unless retention has a documented legal and operational basis.
 
 ## Neon Notes
 
@@ -89,6 +110,7 @@ Provider keys must never use `NEXT_PUBLIC_` variables.
 - Malware scanning resources.
 - Observability ingest and retention.
 - LLM provider tokens or private inference hardware.
+- Speech transcription/synthesis seconds, characters, or audio-token usage.
 - Backup storage.
 
 Free tiers are useful for demos but may sleep, throttle, lack restore guarantees, or impose connection limits.

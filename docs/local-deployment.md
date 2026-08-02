@@ -48,8 +48,19 @@ make seed
 CPU-only demo:
 
 - Keep `LOOMI_CHAT_PROVIDER=mock`.
+- Keep `LOOMI_VOICE_STT_PROVIDER=mock` and `LOOMI_VOICE_TTS_PROVIDER=browser`.
 - No provider key required.
 - Deterministic output is suitable for CI and screenshots.
+
+Voice demo:
+
+- Browser recording uses `MediaRecorder` after an explicit click or push-to-talk action.
+- Mock STT returns `LOOMI_VOICE_MOCK_TRANSCRIPT`.
+- Raw audio retention is disabled by default.
+- Optional local-compatible STT/TTS can be run outside Compose and configured with
+  `LOOMI_VOICE_LOCAL_STT_BASE_URL` and `LOOMI_VOICE_LOCAL_TTS_BASE_URL`.
+- CPU-only Whisper-compatible services work for short recordings but can be slow; GPU
+  improves latency and throughput but is not required for demo mode.
 
 Low-VRAM local endpoint:
 

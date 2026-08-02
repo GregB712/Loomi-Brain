@@ -86,6 +86,41 @@
         "title": "ApprovalDecisionRequest",
         "type": "object"
       },
+      "Body_transcribe_api_v1_voice_transcribe_post": {
+        "properties": {
+          "audio": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Audio",
+            "type": "string"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          }
+        },
+        "required": ["audio"],
+        "title": "Body_transcribe_api_v1_voice_transcribe_post",
+        "type": "object"
+      },
       "Body_upload_documents_api_v1_documents_uploads_post": {
         "properties": {
           "files": {
@@ -1832,6 +1867,112 @@
         "title": "StreamChatRequest",
         "type": "object"
       },
+      "TTSRequest": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": ["mock", "openai", "local-compatible"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "speed": {
+            "default": 1.0,
+            "maximum": 4.0,
+            "minimum": 0.25,
+            "title": "Speed",
+            "type": "number"
+          },
+          "text": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
+          }
+        },
+        "required": ["text"],
+        "title": "TTSRequest",
+        "type": "object"
+      },
+      "TTSResponse": {
+        "properties": {
+          "audio_base64": {
+            "title": "Audio Base64",
+            "type": "string"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "mocked": {
+            "title": "Mocked",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "voice": {
+            "title": "Voice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audio_base64",
+          "content_type",
+          "provider",
+          "model",
+          "voice",
+          "mocked",
+          "request_id",
+          "trace_id"
+        ],
+        "title": "TTSResponse",
+        "type": "object"
+      },
       "TagsResponse": {
         "properties": {
           "document_id": {
@@ -1848,6 +1989,93 @@
         },
         "required": ["document_id", "tags"],
         "title": "TagsResponse",
+        "type": "object"
+      },
+      "TranscriptionResponse": {
+        "properties": {
+          "audio_size_bytes": {
+            "title": "Audio Size Bytes",
+            "type": "integer"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "mocked": {
+            "title": "Mocked",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "retained_audio": {
+            "title": "Retained Audio",
+            "type": "boolean"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "transcript_id": {
+            "title": "Transcript Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "transcript_id",
+          "text",
+          "language",
+          "confidence",
+          "provider",
+          "model",
+          "duration_ms",
+          "audio_size_bytes",
+          "retained_audio",
+          "mocked",
+          "request_id",
+          "trace_id"
+        ],
+        "title": "TranscriptionResponse",
         "type": "object"
       },
       "UpdateConversationRequest": {
@@ -2127,6 +2355,997 @@
         },
         "required": ["loc", "msg", "type"],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VoiceAudioAssetPayload": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "retained": {
+            "title": "Retained",
+            "type": "boolean"
+          },
+          "retention_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Expires At"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "media_type",
+          "size_bytes",
+          "sha256",
+          "retained",
+          "retention_expires_at",
+          "deleted_at",
+          "created_at"
+        ],
+        "title": "VoiceAudioAssetPayload",
+        "type": "object"
+      },
+      "VoiceAudioDeleteResponse": {
+        "properties": {
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          }
+        },
+        "required": ["deleted_count"],
+        "title": "VoiceAudioDeleteResponse",
+        "type": "object"
+      },
+      "VoiceProviderEventPayload": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace Id"
+          }
+        },
+        "required": [
+          "id",
+          "event_type",
+          "provider",
+          "model",
+          "status",
+          "latency_ms",
+          "metadata",
+          "error_code",
+          "trace_id",
+          "created_at"
+        ],
+        "title": "VoiceProviderEventPayload",
+        "type": "object"
+      },
+      "VoiceSessionDetail": {
+        "properties": {
+          "audio_assets": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceAudioAssetPayload"
+            },
+            "title": "Audio Assets",
+            "type": "array"
+          },
+          "audio_size_bytes": {
+            "title": "Audio Size Bytes",
+            "type": "integer"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Detail"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "provider_events": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceProviderEventPayload"
+            },
+            "title": "Provider Events",
+            "type": "array"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "retention_policy": {
+            "additionalProperties": true,
+            "title": "Retention Policy",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stt_model": {
+            "title": "Stt Model",
+            "type": "string"
+          },
+          "stt_provider": {
+            "title": "Stt Provider",
+            "type": "string"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace Id"
+          },
+          "transcripts": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceTranscriptPayload"
+            },
+            "title": "Transcripts",
+            "type": "array"
+          },
+          "tts_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Model"
+          },
+          "tts_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Provider"
+          },
+          "tts_voice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Voice"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "conversation_id",
+          "message_id",
+          "status",
+          "stt_provider",
+          "stt_model",
+          "tts_provider",
+          "tts_model",
+          "tts_voice",
+          "language",
+          "duration_ms",
+          "audio_size_bytes",
+          "retention_policy",
+          "request_id",
+          "trace_id",
+          "error_code",
+          "error_detail",
+          "created_at",
+          "updated_at",
+          "completed_at",
+          "cancelled_at",
+          "transcripts",
+          "audio_assets",
+          "provider_events"
+        ],
+        "title": "VoiceSessionDetail",
+        "type": "object"
+      },
+      "VoiceSessionListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceSessionSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": ["items", "total", "limit", "offset"],
+        "title": "VoiceSessionListResponse",
+        "type": "object"
+      },
+      "VoiceSessionSummary": {
+        "properties": {
+          "audio_size_bytes": {
+            "title": "Audio Size Bytes",
+            "type": "integer"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Detail"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "retention_policy": {
+            "additionalProperties": true,
+            "title": "Retention Policy",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stt_model": {
+            "title": "Stt Model",
+            "type": "string"
+          },
+          "stt_provider": {
+            "title": "Stt Provider",
+            "type": "string"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace Id"
+          },
+          "tts_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Model"
+          },
+          "tts_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Provider"
+          },
+          "tts_voice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Voice"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "conversation_id",
+          "message_id",
+          "status",
+          "stt_provider",
+          "stt_model",
+          "tts_provider",
+          "tts_model",
+          "tts_voice",
+          "language",
+          "duration_ms",
+          "audio_size_bytes",
+          "retention_policy",
+          "request_id",
+          "trace_id",
+          "error_code",
+          "error_detail",
+          "created_at",
+          "updated_at",
+          "completed_at",
+          "cancelled_at"
+        ],
+        "title": "VoiceSessionSummary",
+        "type": "object"
+      },
+      "VoiceSettingsPatch": {
+        "properties": {
+          "auto_speak_assistant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Speak Assistant"
+          },
+          "cloud_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloud Enabled"
+          },
+          "demo_mode": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demo Mode"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "max_audio_bytes": {
+            "anyOf": [
+              {
+                "maximum": 52428800.0,
+                "minimum": 1024.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Audio Bytes"
+          },
+          "max_recording_seconds": {
+            "anyOf": [
+              {
+                "maximum": 600.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Recording Seconds"
+          },
+          "retain_raw_audio": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retain Raw Audio"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Days"
+          },
+          "stt_model": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stt Model"
+          },
+          "stt_provider": {
+            "anyOf": [
+              {
+                "enum": ["mock", "openai", "local-compatible"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stt Provider"
+          },
+          "transcript_review_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Review Enabled"
+          },
+          "tts_model": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Model"
+          },
+          "tts_provider": {
+            "anyOf": [
+              {
+                "enum": ["browser", "mock", "openai", "local-compatible"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Provider"
+          },
+          "tts_voice": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tts Voice"
+          }
+        },
+        "title": "VoiceSettingsPatch",
+        "type": "object"
+      },
+      "VoiceSettingsResponse": {
+        "properties": {
+          "accepted_mime_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepted Mime Types",
+            "type": "array"
+          },
+          "allowed_tts_voices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Tts Voices",
+            "type": "array"
+          },
+          "auto_speak_assistant": {
+            "title": "Auto Speak Assistant",
+            "type": "boolean"
+          },
+          "cloud_enabled": {
+            "title": "Cloud Enabled",
+            "type": "boolean"
+          },
+          "demo_mode": {
+            "title": "Demo Mode",
+            "type": "boolean"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "local_stt_configured": {
+            "title": "Local Stt Configured",
+            "type": "boolean"
+          },
+          "local_tts_configured": {
+            "title": "Local Tts Configured",
+            "type": "boolean"
+          },
+          "max_audio_bytes": {
+            "title": "Max Audio Bytes",
+            "type": "integer"
+          },
+          "max_recording_seconds": {
+            "title": "Max Recording Seconds",
+            "type": "integer"
+          },
+          "openai_configured": {
+            "title": "Openai Configured",
+            "type": "boolean"
+          },
+          "retain_raw_audio": {
+            "title": "Retain Raw Audio",
+            "type": "boolean"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "stt_model": {
+            "title": "Stt Model",
+            "type": "string"
+          },
+          "stt_provider": {
+            "enum": ["mock", "openai", "local-compatible"],
+            "title": "Stt Provider",
+            "type": "string"
+          },
+          "transcript_review_enabled": {
+            "title": "Transcript Review Enabled",
+            "type": "boolean"
+          },
+          "tts_model": {
+            "title": "Tts Model",
+            "type": "string"
+          },
+          "tts_provider": {
+            "enum": ["browser", "mock", "openai", "local-compatible"],
+            "title": "Tts Provider",
+            "type": "string"
+          },
+          "tts_voice": {
+            "title": "Tts Voice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stt_provider",
+          "stt_model",
+          "tts_provider",
+          "tts_model",
+          "tts_voice",
+          "language",
+          "max_recording_seconds",
+          "max_audio_bytes",
+          "transcript_review_enabled",
+          "auto_speak_assistant",
+          "retain_raw_audio",
+          "retention_days",
+          "demo_mode",
+          "cloud_enabled",
+          "accepted_mime_types",
+          "allowed_tts_voices",
+          "openai_configured",
+          "local_stt_configured",
+          "local_tts_configured"
+        ],
+        "title": "VoiceSettingsResponse",
+        "type": "object"
+      },
+      "VoiceTranscriptPayload": {
+        "properties": {
+          "audio_size_bytes": {
+            "title": "Audio Size Bytes",
+            "type": "integer"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace Id"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "model",
+          "language",
+          "text",
+          "confidence",
+          "duration_ms",
+          "audio_size_bytes",
+          "trace_id",
+          "metadata",
+          "created_at"
+        ],
+        "title": "VoiceTranscriptPayload",
         "type": "object"
       }
     }
@@ -6078,6 +7297,305 @@
         },
         "summary": "Get Source Chunk",
         "tags": ["conversations"]
+      }
+    },
+    "/api/v1/voice/sessions": {
+      "get": {
+        "operationId": "sessions_api_v1_voice_sessions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSessionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sessions",
+        "tags": ["voice"]
+      }
+    },
+    "/api/v1/voice/sessions/{voice_session_id}": {
+      "delete": {
+        "operationId": "delete_session_api_v1_voice_sessions__voice_session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voice_session_id",
+            "required": true,
+            "schema": {
+              "title": "Voice Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Session",
+        "tags": ["voice"]
+      },
+      "get": {
+        "operationId": "session_detail_api_v1_voice_sessions__voice_session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voice_session_id",
+            "required": true,
+            "schema": {
+              "title": "Voice Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSessionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Detail",
+        "tags": ["voice"]
+      }
+    },
+    "/api/v1/voice/sessions/{voice_session_id}/audio": {
+      "delete": {
+        "operationId": "delete_session_audio_api_v1_voice_sessions__voice_session_id__audio_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voice_session_id",
+            "required": true,
+            "schema": {
+              "title": "Voice Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceAudioDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Session Audio",
+        "tags": ["voice"]
+      }
+    },
+    "/api/v1/voice/settings": {
+      "get": {
+        "operationId": "read_voice_settings_api_v1_voice_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Voice Settings",
+        "tags": ["voice"]
+      },
+      "patch": {
+        "operationId": "patch_voice_settings_api_v1_voice_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Voice Settings",
+        "tags": ["voice"]
+      }
+    },
+    "/api/v1/voice/transcribe": {
+      "post": {
+        "operationId": "transcribe_api_v1_voice_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_transcribe_api_v1_voice_transcribe_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transcribe",
+        "tags": ["voice"]
+      }
+    },
+    "/api/v1/voice/tts": {
+      "post": {
+        "operationId": "tts_api_v1_voice_tts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TTSRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TTSResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tts",
+        "tags": ["voice"]
       }
     },
     "/health/live": {

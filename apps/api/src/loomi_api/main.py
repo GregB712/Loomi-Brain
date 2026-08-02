@@ -21,6 +21,7 @@ from loomi_api.api import (
     providers,
     search,
     skills,
+    voice,
 )
 from loomi_api.config import Settings, get_settings
 from loomi_api.db.session import create_engine, create_sessionmaker
@@ -87,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(providers.router)
     app.include_router(feedback.router)
     app.include_router(observability.router)
+    app.include_router(voice.router)
 
     return app
 

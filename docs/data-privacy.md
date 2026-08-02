@@ -6,8 +6,9 @@ Loomi-Brain stores synthetic owner-uploaded documents, extracted text chunks,
 deterministic fake embeddings, parser metadata, job logs, audit events,
 sanitized telemetry spans, owner feedback metadata, deterministic evaluation
 reports, MCP server registry records, sanitized MCP capability metadata, skill
-manifests, skill tests, and skill execution metadata. Do not use real personal
-documents or credentials for demos.
+manifests, skill tests, skill execution metadata, voice sessions, reviewed voice
+transcripts, voice provider events, and retained voice audio only when explicitly
+enabled. Do not use real personal documents, credentials, or sensitive audio for demos.
 
 ## Storage
 
@@ -21,6 +22,9 @@ documents or credentials for demos.
   bounded before persistence/UI display.
 - Skill imports and exports must not contain secrets. Published skill versions
   are immutable and remain owner-scoped.
+- Voice transcripts remain private owner-scoped records. Raw voice audio is not stored by
+  default. If retention is enabled, audio is stored under private object storage with a
+  retention window and can be deleted independently from transcript metadata.
 
 ## Logs And Telemetry
 
@@ -40,6 +44,11 @@ MCP telemetry captures server IDs, capability IDs, tool names, risk classes,
 schema hashes, policy outcomes, durations, status, and truncation flags. It must
 not capture secret values, bearer headers, unrestricted tool arguments, or full
 tool results.
+
+Voice telemetry captures provider, model, language, voice session ID, audio duration,
+audio size, TTS voice, latency, request ID, trace ID, status, and safe error codes. It
+must not capture raw audio, provider secrets, cookies, authorization headers, or
+unrestricted transcript content.
 
 ## Previews
 

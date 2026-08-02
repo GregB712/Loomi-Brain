@@ -21,6 +21,8 @@ Post-read action: find the decision record that explains a subsystem boundary.
 - 0013: MCP client boundary.
 - 0014: Declarative skill model.
 - 0015: Skill template and import sandbox.
+- Voice interface: secure browser capture, STT/TTS providers, retention policy, and
+  cited-chat handoff.
 
 ## Release Rule
 

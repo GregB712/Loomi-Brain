@@ -1330,12 +1330,37 @@ button:disabled {
   gap: 16px;
 }
 
+.skills-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(460px, 1fr) minmax(
+      300px,
+      380px
+    );
+  gap: 16px;
+  align-items: start;
+}
+
 .mcp-panel {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   overflow: hidden;
+}
+
+.skill-panel {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
+  overflow: hidden;
+}
+
+.skill-editor-panel {
+  grid-row: span 2;
 }
 
 .mcp-panel > .section-header,
@@ -1377,6 +1402,190 @@ button:disabled {
 .mcp-form textarea,
 .mcp-policy-editor textarea {
   resize: vertical;
+}
+
+.skill-form-grid,
+.skill-run-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.skill-form-grid label,
+.skill-run-grid label,
+.skill-manifest-editor {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.skill-wide,
+.skill-manifest-editor {
+  grid-column: 1 / -1;
+}
+
+.skill-form-grid input,
+.skill-form-grid select,
+.skill-form-grid textarea,
+.skill-run-grid textarea,
+.skill-manifest-editor textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px 10px;
+  color: var(--ink);
+}
+
+.skill-form-grid textarea,
+.skill-run-grid textarea,
+.skill-manifest-editor textarea {
+  resize: vertical;
+  font-family: "Aptos Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.skill-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skill-tool-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.skill-command-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-command-stack {
+  display: grid;
+}
+
+.skill-list,
+.skill-starters,
+.skill-version-list,
+.skill-test-list {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-list-item,
+.skill-starter,
+.skill-version-row,
+.skill-test-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 72%);
+}
+
+.skill-list-item,
+.skill-starter {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.skill-list-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.skill-list-item.is-active,
+.skill-version-row.is-active {
+  border-color: var(--teal);
+  box-shadow: inset 3px 0 0 var(--teal);
+}
+
+.skill-starter small,
+.skill-test-row small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.skill-version-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 6px;
+  padding: 8px;
+}
+
+.skill-version-row > button:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.skill-test-row {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+}
+
+.skill-validation {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  padding: 10px;
+}
+
+.skill-validation p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.skill-json-block {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skill-json-block p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+
+.skill-json-block pre {
+  max-height: 260px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  padding: 10px;
+  color: var(--ink);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .button-primary,
@@ -1600,6 +1809,7 @@ button:disabled {
   .runs-layout,
   .observability-layout,
   .observability-grid,
+  .skills-layout,
   .mcp-layout,
   .mcp-login-row {
     grid-template-columns: 1fr;

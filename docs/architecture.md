@@ -62,6 +62,31 @@ Phase 5 adds privacy-safe observability and evaluation:
 - Observability web route at `/observability`.
 - Deterministic evaluation baselines and regression thresholds for offline CI.
 
+Phase 6 adds the secure MCP client boundary:
+
+- Owner-only MCP registry, stdio template selection, Streamable HTTP endpoint
+  validation, capability refresh, policy editing, invocation, and audit APIs.
+- Discovered tools/resources/prompts are untrusted metadata and disabled by
+  default.
+- Dynamic MCP tools execute through the Phase 4 runtime as
+  `mcp::<server_id>::<tool_name>` with schema-hash-bound approvals.
+- MCP console web route at `/mcp`.
+
+Phase 7 adds safe declarative skills:
+
+- Strict `loomi.dev/v1` skill manifest validation with canonical JSON,
+  checksums, SemVer, JSON Schema subset validation, and unsupported-field
+  rejection.
+- Skill/version/test/test-run persistence, lifecycle state, provenance,
+  validation results, publication metadata, and audit events.
+- Logic-limited template renderer for dictionary-path placeholders only.
+- Dry-run previews, deterministic tests, import-as-draft, secret-free export,
+  version diffs, and immutable published versions.
+- Published skill execution maps into the Phase 4 runtime with skill/runtime tool
+  intersection, existing approval enforcement, output schema validation, and
+  skill trace metadata.
+- Skill Editor web route at `/skills`.
+
 ## Architecture Overview
 
 Loomi-Brain uses a monorepo with separate web, API, worker, shared UI, shared contracts, infrastructure, tests, scripts, and documentation modules.
@@ -86,6 +111,8 @@ flowchart LR
   ModelGateway --> LocalLLMs[Local vLLM]
   Agent --> MCP[MCP Client Boundary]
   MCP --> MCPServers[Approved MCP Servers]
+  API --> Skills[Declarative Skills]
+  Skills --> Agent
   API --> Observability[OpenTelemetry + Langfuse]
   Worker --> Observability
   Web --> Observability

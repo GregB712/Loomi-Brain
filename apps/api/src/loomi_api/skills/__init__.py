@@ -1,0 +1,1 @@
+"""Safe declarative skill support."""

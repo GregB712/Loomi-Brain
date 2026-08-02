@@ -106,6 +106,8 @@ class AgentRunRequest:
     model: str | None = None
     allowed_tools: tuple[str, ...] = ()
     limits: AgentRunLimits = field(default_factory=AgentRunLimits)
+    run_kind: str = "agent"
+    trace_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

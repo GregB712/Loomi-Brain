@@ -380,6 +380,43 @@ Residual risks:
 - Sandboxed logic-limited templates.
 - No arbitrary code execution or dynamic package installation.
 
+Phase 7 implemented controls:
+
+- Skill manifests use strict Pydantic models with unknown-field rejection,
+  normalized names, SemVer validation, canonical JSON, and SHA-256 checksums.
+- The supported JSON Schema subset is validated before persistence and before
+  owner input/output validation. Unsupported schema keywords are rejected.
+- Templates support only bounded dictionary-path placeholders such as
+  `{{ input.question }}`. Loops, filters, calls, imports, internal names,
+  undefined variables, recursive expansion, unsafe tokens, excessive template
+  size, and excessive rendered size are rejected.
+- Published versions are immutable. Updates require a draft clone with a new
+  version.
+- Skill execution loads the exact published version, validates input,
+  intersects skill tools with server runtime/MCP policy, applies effective
+  limits, and then uses the Phase 4 agent runtime.
+- Skills cannot weaken global approval, authorization, budget, model, or MCP
+  policy. Risky tools still require runtime approval.
+- Dry runs and deterministic tests do not call external models or tools.
+- Imports are JSON-only in Phase 7, size-limited, validated completely,
+  reviewed with requested permissions, and persisted as drafts only. Import
+  never publishes or enables tools.
+- Exports omit secrets, credential references, provider configuration, approval
+  data, and hidden server policy. Tests are exported only when explicitly
+  requested.
+- Skill lifecycle, validation, publish, import, export, dry-run, test, and
+  execution operations write audit events.
+
+Residual Phase 7 risks:
+
+- The JSON Schema implementation intentionally supports a small subset. Richer
+  schema features need a new validator decision and tests.
+- YAML import is deferred. If added, it must use a safe loader and reject custom
+  tags before enabling the API.
+- Template logic is intentionally minimal. Owners needing conditionals or loops
+  must model that as explicit manifest structure until a future bounded design is
+  reviewed.
+
 ### Observability
 
 - Correlation IDs across web, API, worker, agent, and provider calls.

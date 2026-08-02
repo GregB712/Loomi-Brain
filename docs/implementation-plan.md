@@ -309,6 +309,8 @@ Implementation notes:
 
 Goal: owner can create, validate, version, test, dry-run, publish, archive, disable, import, export, and execute safe declarative skills.
 
+Status: implemented in Phase 7.
+
 Work items:
 
 1. Skill manifest schema.
@@ -326,6 +328,28 @@ Acceptance criteria:
 - Invalid schema fails with useful errors.
 - Forbidden template or tool fails.
 - Published skill cannot be mutated.
+
+Implementation notes:
+
+- `/api/v1/skills` exposes owner-only create, validate, publish, archive, disable,
+  clone, dry-run, execute, test, import, export, history, and diff routes.
+- Skill manifests use strict `loomi.dev/v1` JSON with SemVer versions, canonical
+  serialization, checksums, and unknown-field rejection.
+- The Phase 7 renderer supports only bounded `{{ input.field }}`-style
+  dictionary-path substitution. It rejects loops, filters, calls, imports,
+  internal-object traversal, unsafe template tokens, undefined variables, and
+  excessive expansion.
+- Published versions are immutable. Updating a published skill requires cloning
+  to a new draft version.
+- Execution loads the exact published version, validates input, intersects skill
+  tools with runtime/MCP policy, applies effective limits, runs through the
+  Phase 4 agent runtime, and records skill IDs/version/checksum in traces.
+- Dry runs and deterministic tests do not call external models or tools.
+- JSON imports are reviewed and imported as drafts only; exports omit secrets and
+  include tests only when explicitly requested.
+- `/skills` provides the Skill Editor with structured manifest controls,
+  manifest JSON, validation, dry-run preview, test runner, lifecycle actions,
+  version history, diff, import review, export, and execution.
 
 ## Phase 8: Deployment And Hardening
 

@@ -565,6 +565,133 @@ export type MCPAuditResponse = {
   offset: number;
 };
 
+export type SkillLifecycleState =
+  "draft" | "published" | "archived" | "disabled";
+
+export type SkillValidationIssue = {
+  path: string;
+  code: string;
+  detail: string;
+};
+
+export type SkillValidationResult = {
+  valid: boolean;
+  errors: SkillValidationIssue[];
+  warnings: SkillValidationIssue[];
+  canonical_manifest: Record<string, unknown> | null;
+  checksum: string | null;
+  normalized_name: string | null;
+  version: string | null;
+  variable_refs: string[];
+  requested_tools: string[];
+  permissions_summary: Record<string, unknown>;
+};
+
+export type SkillVersion = {
+  id: string;
+  skill_id: string;
+  version: string;
+  state: SkillLifecycleState;
+  manifest: Record<string, unknown>;
+  checksum: string;
+  parent_version_id: string | null;
+  validation_results: SkillValidationResult;
+  publication_metadata: Record<string, unknown>;
+  provenance: Record<string, unknown>;
+  test_count: number;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  archived_at: string | null;
+  disabled_at: string | null;
+};
+
+export type SkillSummary = {
+  id: string;
+  name: string;
+  normalized_name: string;
+  description: string | null;
+  state: SkillLifecycleState;
+  current_version_id: string | null;
+  current_version: string | null;
+  created_at: string;
+  updated_at: string;
+  provenance: Record<string, unknown>;
+};
+
+export type SkillDetail = SkillSummary & {
+  versions: SkillVersion[];
+};
+
+export type SkillListResponse = {
+  items: SkillSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type SkillDryRunResponse = {
+  skill_id: string;
+  version_id: string;
+  version: string;
+  checksum: string;
+  rendered_prompt: string;
+  input: Record<string, unknown>;
+  retrieval_policy: Record<string, unknown>;
+  requested_tools: string[];
+  allowed_tools: string[];
+  missing_tools: string[];
+  effective_limits: Record<string, unknown>;
+  model_policy: Record<string, unknown>;
+  approval_requirements: Array<Record<string, unknown>>;
+  external_calls: boolean;
+};
+
+export type SkillTest = {
+  id: string;
+  skill_id: string;
+  skill_version_id: string | null;
+  name: string;
+  fixture: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SkillTestRun = {
+  id: string;
+  skill_id: string;
+  skill_version_id: string;
+  status: string;
+  results: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SkillBundleResponse = {
+  format: string;
+  manifest: Record<string, unknown>;
+  checksum: string;
+  provenance: Record<string, unknown>;
+  tests: Array<Record<string, unknown>>;
+};
+
+export type SkillImportResponse = {
+  persisted: boolean;
+  validation: SkillValidationResult;
+  diff: Record<string, unknown>;
+  requested_permissions: Record<string, unknown>;
+  skill?: SkillDetail;
+};
+
+export type SkillStarterTemplate = {
+  manifest: Record<string, unknown>;
+  validation: SkillValidationResult;
+};
+
 export type SourceChunk = {
   chunk_id: string;
   document_id: string;
@@ -980,6 +1107,256 @@ export function createLoomiClient(apiBase: string) {
       return request<MCPAuditResponse>(
         apiBase,
         `/api/v1/mcp/audit${query ? `?${query}` : ""}`,
+      );
+    },
+    listSkillStarterTemplates() {
+      return request<{ items: SkillStarterTemplate[] }>(
+        apiBase,
+        "/api/v1/skills/starter-templates",
+      );
+    },
+    validateSkillManifest(manifest: Record<string, unknown>) {
+      return request<SkillValidationResult>(
+        apiBase,
+        "/api/v1/skills/validate",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ manifest }),
+        },
+      );
+    },
+    listSkills(params = new URLSearchParams()) {
+      const query = params.toString();
+      return request<SkillListResponse>(
+        apiBase,
+        `/api/v1/skills${query ? `?${query}` : ""}`,
+      );
+    },
+    createSkill(
+      csrfToken: string,
+      manifest: Record<string, unknown>,
+      tests: Array<Record<string, unknown>> = [],
+    ) {
+      return request<SkillDetail>(apiBase, "/api/v1/skills", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({ manifest, tests }),
+      });
+    },
+    getSkill(skillId: string) {
+      return request<SkillDetail>(apiBase, `/api/v1/skills/${skillId}`);
+    },
+    updateSkillVersion(
+      skillId: string,
+      versionId: string,
+      csrfToken: string,
+      manifest: Record<string, unknown>,
+    ) {
+      return request<SkillDetail>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify({ manifest }),
+        },
+      );
+    },
+    publishSkillVersion(skillId: string, versionId: string, csrfToken: string) {
+      return request<SkillDetail>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/publish`,
+        { method: "POST", headers: { "x-csrf-token": csrfToken } },
+      );
+    },
+    archiveSkillVersion(skillId: string, versionId: string, csrfToken: string) {
+      return request<SkillDetail>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/archive`,
+        { method: "POST", headers: { "x-csrf-token": csrfToken } },
+      );
+    },
+    disableSkillVersion(skillId: string, versionId: string, csrfToken: string) {
+      return request<SkillDetail>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/disable`,
+        { method: "POST", headers: { "x-csrf-token": csrfToken } },
+      );
+    },
+    cloneSkillVersion(
+      skillId: string,
+      versionId: string,
+      csrfToken: string,
+      newVersion: string,
+    ) {
+      return request<SkillDetail>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/clone`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify({ new_version: newVersion }),
+        },
+      );
+    },
+    dryRunSkillVersion(
+      skillId: string,
+      versionId: string,
+      csrfToken: string,
+      payload: {
+        input?: Record<string, unknown> | null;
+        mocked_retrieval_results?: Record<string, unknown> | null;
+        mocked_tool_results?: Record<string, unknown> | null;
+      } = {},
+    ) {
+      return request<SkillDryRunResponse>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/dry-run`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    executeSkillVersion(
+      skillId: string,
+      versionId: string,
+      csrfToken: string,
+      input: Record<string, unknown>,
+      idempotencyKey = crypto.randomUUID(),
+    ) {
+      return request<AgentRunDetail>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/execute`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+            "idempotency-key": idempotencyKey,
+          },
+          body: JSON.stringify({ input }),
+        },
+      );
+    },
+    exportSkillVersion(
+      skillId: string,
+      versionId: string,
+      includeTests = false,
+    ) {
+      return request<SkillBundleResponse>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/export?include_tests=${includeTests}`,
+      );
+    },
+    importSkillBundle(csrfToken: string, content: string, persist: boolean) {
+      return request<SkillImportResponse>(apiBase, "/api/v1/skills/import", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({ content, persist }),
+      });
+    },
+    diffSkillVersions(
+      skillId: string,
+      fromVersionId: string,
+      toVersionId: string,
+    ) {
+      return request<{
+        from_version_id: string;
+        to_version_id: string;
+        changes: Array<Record<string, unknown>>;
+      }>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${fromVersionId}/diff/${toVersionId}`,
+      );
+    },
+    listSkillTests(skillId: string, versionId: string) {
+      return request<{ items: SkillTest[] }>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/tests`,
+      );
+    },
+    createSkillTest(
+      skillId: string,
+      versionId: string,
+      csrfToken: string,
+      payload: {
+        name: string;
+        fixture?: Record<string, unknown>;
+        expected?: Record<string, unknown>;
+      },
+    ) {
+      return request<SkillTest>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/tests`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    updateSkillTest(
+      skillId: string,
+      versionId: string,
+      testId: string,
+      csrfToken: string,
+      payload: {
+        name: string;
+        fixture?: Record<string, unknown>;
+        expected?: Record<string, unknown>;
+      },
+    ) {
+      return request<SkillTest>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/tests/${testId}`,
+        {
+          method: "PUT",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    deleteSkillTest(
+      skillId: string,
+      versionId: string,
+      testId: string,
+      csrfToken: string,
+    ) {
+      return request<void>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/tests/${testId}`,
+        { method: "DELETE", headers: { "x-csrf-token": csrfToken } },
+      );
+    },
+    runSkillTests(skillId: string, versionId: string, csrfToken: string) {
+      return request<SkillTestRun>(
+        apiBase,
+        `/api/v1/skills/${skillId}/versions/${versionId}/tests:run`,
+        { method: "POST", headers: { "x-csrf-token": csrfToken } },
       );
     },
     observabilityStatus() {

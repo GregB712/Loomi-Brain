@@ -23,7 +23,7 @@ const navigation = [
   { label: "Knowledge", icon: Library, href: "/knowledge" },
   { label: "Search", icon: Search, href: "/search" },
   { label: "Runs", icon: Workflow, href: "/runs" },
-  { label: "Skills", icon: Sparkles, href: "#" },
+  { label: "Skills", icon: Sparkles, href: "/skills" },
   { label: "MCP", icon: Plug, href: "/mcp" },
   { label: "Observability", icon: Activity, href: "/observability" },
   { label: "Settings", icon: KeyRound, href: "#" },

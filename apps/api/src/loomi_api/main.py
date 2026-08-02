@@ -19,6 +19,7 @@ from loomi_api.api import (
     observability,
     providers,
     search,
+    skills,
 )
 from loomi_api.config import Settings, get_settings
 from loomi_api.db.session import create_engine, create_sessionmaker
@@ -80,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(conversations.router)
     app.include_router(agent_runs.router)
     app.include_router(mcp.router)
+    app.include_router(skills.router)
     app.include_router(providers.router)
     app.include_router(feedback.router)
     app.include_router(observability.router)

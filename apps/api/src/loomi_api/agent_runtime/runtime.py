@@ -95,7 +95,7 @@ class AgentRuntimeService:
             idempotency_key=request.idempotency_key,
             trace_id=request.trace_id,
             budget={"policy_version": POLICY_VERSION},
-            run_kind="agent",
+            run_kind=request.run_kind,
             status_reason="started",
             owner_request=cast(str, sanitize_value(request.owner_request, string_limit=5000)),
             provider=request.provider or self.settings.chat_provider,
@@ -111,6 +111,7 @@ class AgentRuntimeService:
             retry_count=0,
             started_at=utc_now(),
             trace_metadata={
+                **request.trace_metadata,
                 "step_count": 1,
                 "tool_call_count": 0,
                 "events": [],
@@ -990,7 +991,6 @@ class AgentRuntimeService:
             select(AgentRun).where(
                 AgentRun.id == run_id,
                 AgentRun.owner_user_id == owner_user_id,
-                AgentRun.run_kind == "agent",
             )
         )
         if run is None:
@@ -1125,6 +1125,8 @@ class AgentRuntimeService:
             model=run.model,
             allowed_tools=tuple(run.allowed_tools or DEFAULT_ALLOWED_TOOLS),
             limits=AgentRunLimits.from_mapping(run.limits),
+            run_kind=run.run_kind,
+            trace_metadata=run.trace_metadata or {},
         )
 
     def _initial_budget_failure(

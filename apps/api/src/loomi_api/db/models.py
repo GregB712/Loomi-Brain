@@ -333,26 +333,74 @@ class Skill(IdMixin, TimestampMixin, Base):
 
     owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(120))
+    normalized_name: Mapped[str] = mapped_column(String(120), default="")
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[str] = mapped_column(String(40), default="draft")
     current_version_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    provenance: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (
+        Index("ix_skills_owner_normalized", "owner_user_id", "normalized_name", unique=True),
+        Index("ix_skills_owner_state", "owner_user_id", "state"),
+    )
 
 
 class SkillVersion(IdMixin, TimestampMixin, Base):
     __tablename__ = "skill_versions"
 
     skill_id: Mapped[str] = mapped_column(ForeignKey("skills.id", ondelete="CASCADE"))
+    owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     version: Mapped[str] = mapped_column(String(40))
     manifest: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    canonical_manifest: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    manifest_checksum: Mapped[str] = mapped_column(String(64), default="")
+    state: Mapped[str] = mapped_column(String(40), default="draft")
+    parent_version_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    validation_results: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    publication_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    provenance: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_skill_versions_skill_version", "skill_id", "version", unique=True),
+        Index("ix_skill_versions_owner_state", "owner_user_id", "state"),
+    )
 
 
 class SkillTest(IdMixin, TimestampMixin, Base):
     __tablename__ = "skill_tests"
 
     skill_id: Mapped[str] = mapped_column(ForeignKey("skills.id", ondelete="CASCADE"))
+    skill_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("skill_versions.id", ondelete="CASCADE"), nullable=True
+    )
+    owner_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
     name: Mapped[str] = mapped_column(String(120))
     fixture: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     expected: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    test_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (Index("ix_skill_tests_version", "skill_version_id"),)
+
+
+class SkillTestRun(IdMixin, TimestampMixin, Base):
+    __tablename__ = "skill_test_runs"
+
+    skill_id: Mapped[str] = mapped_column(ForeignKey("skills.id", ondelete="CASCADE"))
+    skill_version_id: Mapped[str] = mapped_column(
+        ForeignKey("skill_versions.id", ondelete="CASCADE")
+    )
+    owner_user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(String(40), default="created")
+    results: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_skill_test_runs_version_status", "skill_version_id", "status"),)
 
 
 class MCPServer(IdMixin, TimestampMixin, Base):

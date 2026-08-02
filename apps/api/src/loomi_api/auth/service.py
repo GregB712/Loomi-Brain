@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from time import monotonic
 
 from fastapi import HTTPException, Request, status
 from sqlalchemy import select
@@ -30,6 +31,9 @@ class LoginResult:
 class AuthenticatedOwner:
     user: User
     session: OwnerSession
+
+
+_login_attempts: dict[str, list[float]] = {}
 
 
 async def seed_owner(session: AsyncSession, settings: Settings) -> User:
@@ -73,6 +77,7 @@ async def login_owner(
     password: str,
 ) -> LoginResult:
     normalized_email = normalize_email(email)
+    _enforce_login_rate_limit(settings, request, normalized_email)
     row = await session.execute(
         select(AuthAccount, User)
         .join(User, AuthAccount.user_id == User.id)
@@ -96,6 +101,7 @@ async def login_owner(
         await _audit_login_failure(session, request, normalized_email)
         raise _invalid_credentials()
 
+    _clear_login_rate_limit(request, normalized_email)
     session_token = new_secret_token()
     csrf_token = new_secret_token()
     owner_session = OwnerSession(
@@ -231,6 +237,25 @@ async def revoke_session(
 
 def normalize_email(email: str) -> str:
     return email.strip().casefold()
+
+
+def _enforce_login_rate_limit(settings: Settings, request: Request, normalized_email: str) -> None:
+    now = monotonic()
+    window_started = now - settings.auth_login_rate_limit_window_seconds
+    key = f"{_client_ip(request) or 'unknown'}:{normalized_email}"
+    attempts = [stamp for stamp in _login_attempts.get(key, []) if stamp >= window_started]
+    attempts.append(now)
+    _login_attempts[key] = attempts
+    if len(attempts) > settings.auth_login_rate_limit_attempts:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again later.",
+        )
+
+
+def _clear_login_rate_limit(request: Request, normalized_email: str) -> None:
+    key = f"{_client_ip(request) or 'unknown'}:{normalized_email}"
+    _login_attempts.pop(key, None)
 
 
 def _invalid_credentials() -> HTTPException:

@@ -4,13 +4,13 @@
 
 Reader: a backend, frontend, AI platform, or security engineer evaluating the project design.
 
-Post-read action: understand the system boundaries, data flow, API contract, technology choices, and initial dependency baseline well enough to implement Phase 1.
+Post-read action: understand the system boundaries, data flow, API contract, technology choices, and deployment assumptions well enough to review or extend the release candidate.
 
 ## Current Repository State
 
-The repository started empty except for agent metadata directories with no files inside them. Git metadata was initialized during discovery, but branch metadata writes are restricted in this environment, so branch renaming is deferred.
+Loomi-Brain is a release-candidate owner-only AI knowledge system. Earlier implementation phases built the foundation, ingestion, retrieval, chat, agent runtime, observability, MCP, and skills surfaces. Phase 8 adds deployment hardening, security controls, operational scripts, and release documentation.
 
-Phase 1 now contains a runnable monorepo foundation:
+Phase 1 established the runnable monorepo foundation:
 
 - Next.js web app shell for the single-owner workspace.
 - FastAPI API with liveness, readiness, request IDs, trace IDs, structured logs, CORS allowlist, security headers, session endpoints, and a protected document list endpoint.

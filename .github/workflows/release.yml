@@ -1,0 +1,86 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Immutable release tag, for example v0.1.0"
+        required: true
+        type: string
+      dry_run:
+        description: "Build artifacts without creating a GitHub release"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate release tag
+        run: |
+          case "${{ inputs.version }}" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "Version must look like vMAJOR.MINOR.PATCH" >&2; exit 2 ;;
+          esac
+
+      - name: Build versioned images
+        run: |
+          mkdir -p dist/release
+          docker build -f apps/api/Dockerfile -t loomi-brain-api:${{ inputs.version }} .
+          docker build -f apps/worker/Dockerfile -t loomi-brain-worker:${{ inputs.version }} .
+          docker build -f apps/web/Dockerfile -t loomi-brain-web:${{ inputs.version }} .
+          docker save loomi-brain-api:${{ inputs.version }} -o dist/release/loomi-brain-api-${{ inputs.version }}.tar
+          docker save loomi-brain-worker:${{ inputs.version }} -o dist/release/loomi-brain-worker-${{ inputs.version }}.tar
+          docker save loomi-brain-web:${{ inputs.version }} -o dist/release/loomi-brain-web-${{ inputs.version }}.tar
+          sha256sum dist/release/*.tar > dist/release/SHA256SUMS
+
+      - name: Draft release notes
+        run: |
+          cat > dist/release/RELEASE_NOTES.md <<'NOTES'
+          # Loomi-Brain Release
+
+          This release packages the owner-only local/private/cloud-reference Loomi-Brain application.
+
+          ## Verification Before Release
+
+          - Run `make lint`
+          - Run `make typecheck`
+          - Run `make test`
+          - Run `make eval`
+          - Run `corepack pnpm build`
+          - Run `docker compose -f infra/docker/compose.yml build api worker web`
+          - Review the `security` workflow results before publishing.
+
+          ## Deployment
+
+          This workflow does not deploy production. It only builds immutable local image archives,
+          checksums, and release notes.
+          NOTES
+
+      - name: Upload release package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: loomi-brain-release-${{ inputs.version }}
+          path: dist/release
+          retention-days: 30
+
+      - name: Create GitHub release
+        if: ${{ inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.version }}" \
+            dist/release/*.tar \
+            dist/release/SHA256SUMS \
+            --title "Loomi-Brain ${{ inputs.version }}" \
+            --notes-file dist/release/RELEASE_NOTES.md

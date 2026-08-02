@@ -1,22 +1,44 @@
+x-app-hardening: &app-hardening
+  cap_drop:
+    - ALL
+  read_only: true
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+
+x-small-container: &small-container
+  cpus: "1.0"
+  mem_limit: 768m
+
 services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_DB: loomi_brain
-      POSTGRES_USER: loomi
-      POSTGRES_PASSWORD: loomi_dev_password
+      POSTGRES_DB: ${LOOMI_POSTGRES_DB:-loomi_brain}
+      POSTGRES_USER: ${LOOMI_POSTGRES_USER:-loomi}
+      POSTGRES_PASSWORD: ${LOOMI_POSTGRES_PASSWORD:-loomi_dev_password}
     ports:
       - "127.0.0.1:15432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U loomi -d loomi_brain"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - loomi-postgres:/var/lib/postgresql/data
+    networks:
+      - backend
+    cpus: "1.5"
+    mem_limit: 1g
 
   redis:
     image: redis:8-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
       - "127.0.0.1:16379:6379"
     healthcheck:
@@ -24,6 +46,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+    <<: *small-container
 
   api:
     build:
@@ -31,13 +59,16 @@ services:
       dockerfile: apps/api/Dockerfile
     environment:
       LOOMI_ENVIRONMENT: local
-      LOOMI_DATABASE_URL: postgresql+asyncpg://loomi:loomi_dev_password@postgres:5432/loomi_brain
+      LOOMI_DATABASE_URL: postgresql+asyncpg://${LOOMI_POSTGRES_USER:-loomi}:${LOOMI_POSTGRES_PASSWORD:-loomi_dev_password}@postgres:5432/${LOOMI_POSTGRES_DB:-loomi_brain}
       LOOMI_CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
-      LOOMI_OWNER_EMAIL: owner@loomi.local
-      LOOMI_OWNER_PASSWORD: loomi-local-owner-password
+      LOOMI_TRUSTED_HOSTS: '["localhost","127.0.0.1","api"]'
+      LOOMI_OWNER_EMAIL: ${LOOMI_OWNER_EMAIL:-owner@loomi.local}
+      LOOMI_OWNER_PASSWORD: ${LOOMI_OWNER_PASSWORD:-loomi-local-owner-password}
+      LOOMI_SESSION_COOKIE_SECURE: ${LOOMI_SESSION_COOKIE_SECURE:-false}
       LOOMI_STORAGE_ROOT: /app/apps/api/var/private-objects
-      LOOMI_SCANNER_MODE: fake-clean
-      LOOMI_SCANNER_REQUIRED: "false"
+      LOOMI_MAX_REQUEST_BYTES: ${LOOMI_MAX_REQUEST_BYTES:-20971520}
+      LOOMI_SCANNER_MODE: ${LOOMI_SCANNER_MODE:-fake-clean}
+      LOOMI_SCANNER_REQUIRED: ${LOOMI_SCANNER_REQUIRED:-false}
       LOOMI_OBSERVABILITY_ENABLED: ${LOOMI_OBSERVABILITY_ENABLED:-true}
       LOOMI_OBSERVABILITY_EXPORTER: ${LOOMI_OBSERVABILITY_EXPORTER:-local_file}
       LOOMI_OBSERVABILITY_EXPORTER_ENDPOINT: ${LOOMI_OBSERVABILITY_EXPORTER_ENDPOINT:-}
@@ -50,13 +81,16 @@ services:
       LOOMI_MCP_DEFAULT_CONNECTION_TIMEOUT_SECONDS: ${LOOMI_MCP_DEFAULT_CONNECTION_TIMEOUT_SECONDS:-5}
       LOOMI_MCP_DEFAULT_TOOL_TIMEOUT_SECONDS: ${LOOMI_MCP_DEFAULT_TOOL_TIMEOUT_SECONDS:-10}
       LOOMI_MCP_DEFAULT_OUTPUT_SIZE_LIMIT: ${LOOMI_MCP_DEFAULT_OUTPUT_SIZE_LIMIT:-12000}
+      LOOMI_CHAT_PROVIDER: ${LOOMI_CHAT_PROVIDER:-mock}
+      LOOMI_CHAT_MODEL: ${LOOMI_CHAT_MODEL:-loomi-mock-cited-chat-v1}
+      LOOMI_VLLM_BASE_URL: ${LOOMI_VLLM_BASE_URL:-}
     command:
       - sh
       - -c
       - >
-        uv run --frozen --no-dev alembic upgrade head &&
-        uv run --frozen --no-dev python -m loomi_api.seed &&
-        uv run --frozen --no-dev fastapi run src/loomi_api/main.py --host 0.0.0.0 --port 8000
+        alembic upgrade head &&
+        python -m loomi_api.seed &&
+        python -m fastapi run src/loomi_api/main.py --host 0.0.0.0 --port 8000
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -77,6 +111,10 @@ services:
       retries: 5
     volumes:
       - loomi-api-objects:/app/apps/api/var/private-objects
+    networks:
+      - edge
+      - backend
+    <<: [*app-hardening, *small-container]
 
   worker:
     build:
@@ -84,54 +122,147 @@ services:
       dockerfile: apps/worker/Dockerfile
     environment:
       LOOMI_ENVIRONMENT: local
-      LOOMI_DATABASE_URL: postgresql+asyncpg://loomi:loomi_dev_password@postgres:5432/loomi_brain
+      LOOMI_DATABASE_URL: postgresql+asyncpg://${LOOMI_POSTGRES_USER:-loomi}:${LOOMI_POSTGRES_PASSWORD:-loomi_dev_password}@postgres:5432/${LOOMI_POSTGRES_DB:-loomi_brain}
       LOOMI_REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >
+          from loomi_worker.main import get_worker_status;
+          raise SystemExit(0 if get_worker_status().status == "ready" else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - backend
+    <<: [*app-hardening, *small-container]
 
   web:
     build:
       context: ../..
       dockerfile: apps/web/Dockerfile
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8000}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >
+          fetch("http://127.0.0.1:3000")
+            .then((response) => process.exit(response.ok ? 0 : 1))
+            .catch(() => process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - edge
+    <<: [*app-hardening, *small-container]
 
   object-store:
-    image: minio/minio:latest
+    image: ${LOOMI_MINIO_IMAGE:-minio/minio:latest}
     profiles: ["storage"]
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: loomi
-      MINIO_ROOT_PASSWORD: loomi_dev_password
+      MINIO_ROOT_USER: ${LOOMI_MINIO_ROOT_USER:-loomi-minio-local}
+      MINIO_ROOT_PASSWORD: ${LOOMI_MINIO_ROOT_PASSWORD:-change-this-minio-local-password}
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - loomi-object-store:/data
+    networks:
+      - backend
+    cpus: "1.0"
+    mem_limit: 1g
 
   clamav:
-    image: clamav/clamav:stable
+    image: ${LOOMI_CLAMAV_IMAGE:-clamav/clamav:stable}
     profiles: ["scan"]
     ports:
       - "127.0.0.1:3310:3310"
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+    cpus: "1.0"
+    mem_limit: 2g
 
   observability:
-    image: grafana/otel-lgtm:latest
+    image: ${LOOMI_OBSERVABILITY_IMAGE:-grafana/otel-lgtm:latest}
     profiles: ["observability"]
     ports:
       - "127.0.0.1:3001:3000"
       - "127.0.0.1:4317:4317"
       - "127.0.0.1:4318:4318"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - loomi-observability:/data
+    networks:
+      - edge
+      - backend
+    cpus: "2.0"
+    mem_limit: 2g
+
+  vllm:
+    image: ${LOOMI_VLLM_IMAGE:-vllm/vllm-openai:latest}
+    profiles: ["llm"]
+    command:
+      - --model
+      - ${LOOMI_VLLM_MODEL:-Qwen/Qwen2.5-0.5B-Instruct}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    ports:
+      - "127.0.0.1:18000:8000"
+    restart: unless-stopped
+    shm_size: 2g
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - loomi-vllm-cache:/root/.cache
+    networks:
+      - edge
+    cpus: "4.0"
+    mem_limit: 12g
+
+networks:
+  edge:
+  backend:
+    internal: true
 
 volumes:
   loomi-postgres:
   loomi-object-store:
   loomi-api-objects:
+  loomi-observability:
+  loomi-vllm-cache:

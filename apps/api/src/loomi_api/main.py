@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from loomi_api import __version__
 from loomi_api.api import (
@@ -56,6 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db_engine = db_engine
     app.state.db_sessionmaker = db_sessionmaker
 
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=resolved_settings.trusted_hosts)
     app.add_middleware(RequestContextMiddleware, settings=resolved_settings)
     app.add_middleware(
         CORSMiddleware,

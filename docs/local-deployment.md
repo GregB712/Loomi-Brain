@@ -1,111 +1,78 @@
 # Local Deployment
 
-## Start
+Reader: reviewer or owner running Loomi-Brain on one machine.
+
+Post-read action: start a secure local stack, choose optional profiles, and know what is demo-only.
+
+## Default Stack
 
 ```bash
+cp .env.example .env
 make setup
-make dev
+docker compose -f infra/docker/compose.yml up --build -d postgres redis api worker web
 ```
 
-Open the web app at `http://127.0.0.1:3000`, the Knowledge Library at `http://127.0.0.1:3000/knowledge`, search at `http://127.0.0.1:3000/search`, and cited chat at `http://127.0.0.1:3000/chat`.
+Open `http://127.0.0.1:3000`.
 
-Local owner credentials:
+Development-only owner:
 
 ```text
 Email: owner@loomi.local
 Password: loomi-local-owner-password
 ```
 
-## Services
+The default Compose profile binds service ports to localhost. App containers run as non-root users, drop Linux capabilities, use no-new-privileges, have read-only root filesystems where practical, and use named volumes for database and private objects.
 
-Default Compose services are PostgreSQL with pgvector, Redis, API, worker, and web. The API persists uploaded source objects in the `loomi-api-objects` volume at `/app/apps/api/var/private-objects`.
-
-## Observability Profile
-
-Start the local collector UI:
-
-```bash
-docker compose -f infra/docker/compose.yml --profile observability up -d observability
-```
-
-The profile exposes the LGTM UI on `127.0.0.1:3001` and OTLP on
-`127.0.0.1:4317`/`127.0.0.1:4318`. The API defaults to local JSONL span export under
-`LOOMI_STORAGE_ROOT/observability/telemetry.jsonl`. To post spans to the local OTLP
-collector, set:
-
-```bash
-LOOMI_OBSERVABILITY_EXPORTER=otlp_http
-LOOMI_OBSERVABILITY_EXPORTER_ENDPOINT=http://observability:4318/v1/traces
-LOOMI_OBSERVABILITY_LOCAL_ONLY=false
-```
-
-Tear down the optional collector:
-
-```bash
-docker compose -f infra/docker/compose.yml --profile observability down
-```
-
-Retention is controlled by `LOOMI_OBSERVABILITY_RETENTION_DAYS`; local JSONL pruning is
-manual for this phase.
-
-## MCP Local Testing
-
-Open `/mcp` after signing in and register the built-in `loomi-test` stdio
-template. The browser can select this template, but cannot submit an executable
-path or shell command string.
-
-Local MCP defaults:
-
-- `LOOMI_MCP_ENABLED=true`
-- `LOOMI_MCP_ALLOW_PRIVATE_NETWORKS=false`
-- `LOOMI_MCP_DEFAULT_CONNECTION_TIMEOUT_SECONDS=5`
-- `LOOMI_MCP_DEFAULT_TOOL_TIMEOUT_SECONDS=10`
-- `LOOMI_MCP_DEFAULT_OUTPUT_SIZE_LIMIT=12000`
-
-The test server exposes synthetic echo, add, note-search, truncation, and policy
-probe tools. Remote Streamable HTTP endpoints still block loopback, private,
-link-local, metadata, multicast, reserved, and unspecified destinations by
-default.
-
-Optional profiles:
+## Optional Profiles
 
 ```bash
 docker compose -f infra/docker/compose.yml --profile storage up -d object-store
 docker compose -f infra/docker/compose.yml --profile scan up -d clamav
 docker compose -f infra/docker/compose.yml --profile observability up -d observability
+docker compose -f infra/docker/compose.yml --profile llm up -d vllm
 ```
 
-The Phase 2 request path uses the local object store adapter and fake scanner by default. Phase 3 chat uses the deterministic mock provider by default, so no paid provider credentials are required. MinIO and ClamAV containers are present for later adapter work.
+Optional images are configurable in `.env` so operators can pin organization-approved tags or digests.
 
-## Ingestion Configuration
+## Migrations And Seed
 
-Relevant settings are documented in `.env.example`:
-
-- `LOOMI_STORAGE_ROOT`
-- `LOOMI_MAX_UPLOAD_BYTES`
-- `LOOMI_MAX_UPLOAD_FILES`
-- `LOOMI_SCANNER_MODE`
-- `LOOMI_SCANNER_REQUIRED`
-- `LOOMI_EXTRACTION_ENGINE`
-- `LOOMI_EMBEDDING_MODEL`
-- `LOOMI_CHAT_PROVIDER`
-- `LOOMI_CHAT_MODEL`
-- `LOOMI_OPENAI_COMPATIBLE_BASE_URL`
-- `LOOMI_VLLM_BASE_URL`
-
-Use `LOOMI_EXTRACTION_ENGINE=docling` only after installing the optional API extra:
+The API container runs migrations and seeds the local owner at startup. Outside Docker:
 
 ```bash
-cd apps/api
-uv sync --extra docling
+make migrate
+make seed
 ```
 
-Use `LOOMI_CHAT_PROVIDER=vllm` and `LOOMI_VLLM_BASE_URL=<local OpenAI-compatible URL>` to test a local vLLM server.
+## Local Model Profiles
 
-## Stop
+CPU-only demo:
+
+- Keep `LOOMI_CHAT_PROVIDER=mock`.
+- No provider key required.
+- Deterministic output is suitable for CI and screenshots.
+
+Low-VRAM local endpoint:
+
+- Run an OpenAI-compatible local server outside the app stack.
+- Set `LOOMI_CHAT_PROVIDER=openai-compatible`.
+- Set `LOOMI_OPENAI_COMPATIBLE_BASE_URL` and server-side API key if required.
+- Verify first-token latency and memory pressure manually.
+
+Moderate-VRAM vLLM:
+
+- Start the optional `llm` profile only on a machine with suitable GPU/driver support.
+- Set `LOOMI_VLLM_MODEL` to a model your hardware can load.
+- Set `LOOMI_CHAT_PROVIDER=vllm` and `LOOMI_VLLM_BASE_URL=http://vllm:8000/v1` for API-to-vLLM traffic inside Compose.
+
+Do not assume every model works on every machine. Record model name, quantization, GPU memory, CPU RAM, and latency when reporting results.
+
+## Backup And Teardown
 
 ```bash
-make down
+scripts/backup-postgres.sh
+scripts/backup-objects.sh
+scripts/disaster-recovery-smoke.sh
+docker compose -f infra/docker/compose.yml down
 ```
 
-Named Docker volumes are intentionally preserved. Remove them manually only when you want to discard local database and source-object data.
+Named volumes are preserved by default. Delete volumes only when intentionally discarding local data.

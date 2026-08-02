@@ -1,150 +1,212 @@
 # Loomi-Brain
 
-Secure, single-owner second-brain application for private knowledge ingestion, retrieval, cited chat, controlled agent tooling, MCP integrations, observability, evaluation, and declarative skills.
+Owner-only AI second brain for private knowledge ingestion, hybrid retrieval, cited chat, controlled agent runs, MCP integrations, observability, deterministic evaluation, and declarative skills.
 
-This repository is in Phase 7: safe declarative skills. The monorepo foundation, owner auth boundary, document upload pipeline, retrieval services, provider-neutral chat gateway, citation validation, controlled agent runtime, Observability UI, MCP registry/tool-policy UI, Skill Editor, migrations, Docker Compose stack, CI workflow, and local verification commands are in place.
+Loomi-Brain is built as a portfolio-grade full-stack AI platform: a Next.js web app, FastAPI API, background worker, PostgreSQL with pgvector, private object storage, provider-neutral model gateway, approval-gated tools, and safety-first MCP/skill boundaries. The default demo uses synthetic data and mock model output, so reviewers can run the system without paid provider keys or personal documents.
 
-## Current State
+## What It Shows
 
-- Repository initialized from an empty workspace.
-- Next.js renders the owner dashboard, Knowledge Library at `/knowledge`, search page at `/search`, cited chat workspace at `/chat`, Agent Run Inspector at `/runs`, MCP console at `/mcp`, Skill Editor at `/skills`, and Observability dashboard at `/observability`.
-- FastAPI exposes health, session, document, upload, preview, retry, re-index, delete, tag, ingestion-job, search, conversation, streamed response, cancellation, source, provider, feedback, agent-run, MCP, skills, and observability endpoints under `/api/v1`.
-- SQLAlchemy and Alembic define the Phase 1 base schema plus Phase 2 ingestion metadata and Phase 3 retrieval indexes.
-- Local owner authentication uses server-side sessions, HttpOnly SameSite cookies, CSRF tokens, and session revocation.
-- Document ingestion streams uploads to private storage, validates MIME, scans, extracts text, normalizes, chunks, embeds with a deterministic fake provider, persists provenance, and exposes safe previews.
-- Search supports lexical, semantic, and hybrid modes. Hybrid retrieval uses reciprocal rank fusion over lexical and vector rankings.
-- Cited chat streams typed SSE events, validates citations against selected chunks, persists conversations/messages/runs/events, and supports cancellation, retry, source preview, provider metadata, and owner feedback.
-- Agent runs use a code-owned state machine, per-run tool allowlists, safe first-party tools, approval-required local mutation tooling, exact argument-hash approval binding, cancellation, retry, persisted event history, and a run-inspector UI.
-- MCP integration supports owner-approved stdio templates, Streamable HTTP validation, sanitized capability discovery, deny-by-default tools, schema-hash approval binding, dynamic agent-runtime tool IDs, audit history, and a harmless built-in test server.
-- Skills use strict manifests, SemVer versions, immutable published versions, logic-limited templates, deterministic tests, dry-run previews, import-as-draft, secret-free export, and Phase 4 runtime execution with server-side tool-policy intersection.
-- Privacy-safe telemetry records sanitized spans for API requests, retrieval, model calls, agent states, tools, approvals, ingestion stages, owner feedback, and deterministic evaluations.
-- Docker Compose defines PostgreSQL with pgvector, Redis, API, worker, web, and optional storage, scan, and observability profiles.
-- CI is configured for frozen installs, formatting, linting, type checks, tests, build, migration verification, security checks, dependency audit, and container builds.
+- Single-owner authentication with server-side sessions, HttpOnly SameSite cookies, CSRF protection, session revocation, and no public registration.
+- Private document ingestion with size limits, MIME validation, safe filenames, parser limits, fake/local scanner mode, chunk provenance, deterministic embeddings, and complete document deletion.
+- Lexical, semantic, and hybrid search with reciprocal rank fusion.
+- Streamed cited chat with provider adapters, citation validation, no-answer behavior, cancellation, and owner feedback.
+- Controlled agent runtime with explicit states, tool allowlists, approval binding, audit history, cancellation, and a run inspector.
+- MCP registry with deny-by-default capability discovery, schema-hash-bound approvals, stdio templates, and safe Streamable HTTP validation.
+- Declarative skills with strict manifests, immutable published versions, template restrictions, dry-run previews, deterministic tests, and runtime policy intersection.
+- Privacy-safe observability and deterministic evaluation in CI/local mode.
+- Hardened local Docker profile plus cloud and private/hybrid deployment references.
 
-## Local Development
+## Architecture
 
-Install dependencies from lockfiles:
+```mermaid
+flowchart LR
+  Owner[Owner Browser] --> Web[Next.js Web]
+  Web --> API[FastAPI API]
+  API --> DB[(PostgreSQL + pgvector)]
+  API --> Objects[(Private Objects)]
+  API --> Worker[Worker]
+  Worker --> DB
+  Worker --> Objects
+  Worker --> Scan[Scanner]
+  API --> Agent[Agent Runtime]
+  Agent --> Retrieval[Retrieval]
+  Retrieval --> DB
+  Agent --> Models[Model Gateway]
+  Models --> Cloud[Cloud LLMs]
+  Models --> Local[Local vLLM]
+  Agent --> MCP[MCP Boundary]
+  Agent --> Skills[Skills]
+  API --> Obs[Observability]
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> Created
+  Created --> Retrieving
+  Retrieving --> AwaitingApproval: risky tool
+  AwaitingApproval --> ToolRunning: owner approves exact args
+  AwaitingApproval --> Denied: owner denies
+  Retrieving --> Generating
+  ToolRunning --> Generating
+  Generating --> Completed
+  Generating --> Failed
+  Retrieving --> Canceled
+  AwaitingApproval --> Canceled
+```
+
+```mermaid
+sequenceDiagram
+  participant Owner
+  participant Web
+  participant API
+  participant Worker
+  participant Store as Private Objects
+  participant DB
+  Owner->>Web: Upload synthetic file
+  Web->>API: POST upload with CSRF
+  API->>Store: Write random object key
+  API->>DB: Create document and ingestion job
+  API->>Worker: Queue ingestion
+  Worker->>Store: Read source object
+  Worker->>Worker: Scan, parse, normalize, chunk
+  Worker->>DB: Persist chunks and embeddings
+  Web->>API: Search or chat
+  API->>DB: Retrieve owner-scoped chunks
+  API-->>Web: Stream cited answer events
+```
+
+## Quick Start
+
+Requirements: Docker, Docker Compose, Node 22.13+ through Corepack, `uv`, and GNU Make.
 
 ```bash
+cp .env.example .env
 make setup
+docker compose -f infra/docker/compose.yml up --build -d postgres redis api worker web
 ```
 
-Start the local Docker stack in the background:
+Open `http://127.0.0.1:3000`.
 
-```bash
-make dev
-```
-
-The default host ports are `3000` for web, `8000` for API, `15432` for PostgreSQL, and `16379` for Redis.
-
-Apply migrations and seed the local owner when running services outside Docker:
-
-```bash
-make migrate
-make seed
-```
-
-Local owner credentials are intentionally development-only:
+Development-only owner credentials:
 
 ```text
 Email: owner@loomi.local
 Password: loomi-local-owner-password
 ```
 
-Production rejects the default local password and insecure cookie settings.
+Production rejects the default local password, insecure cookies, wildcard CORS, wildcard trusted hosts, disabled scanner policy, excessive telemetry sampling, telemetry content capture, and private-network MCP egress.
 
-Open the Knowledge Library at `http://127.0.0.1:3000/knowledge`, sign in with the local owner credentials, then upload synthetic documents. Use `/search` to compare retrieval modes, `/chat` to ask grounded questions with citations, `/runs` to start and inspect controlled agent runs, `/mcp` to register the harmless test MCP server and enable exact tools, `/skills` to create and test safe declarative skills, and `/observability` to inspect sanitized product telemetry. Supported default-local formats are PDF, DOCX, PPTX, Markdown, text, HTML, CSV, PNG, JPEG, TIFF, and WEBP. URL ingestion is intentionally deferred until SSRF protections are implemented.
+## Synthetic Demo Path
 
-Default limits are 15 MiB per uploaded file, 8 files per request, 80 PDF pages, 24 million image pixels, 250,000 extracted characters, 500 chunks per document, and bounded Office archive entry/uncompressed-size limits. Local/test mode uses a fake scanner and deterministic fake embeddings; production requires scanner availability.
+1. Sign in with the development-only owner.
+2. Open Knowledge and upload synthetic Markdown, text, CSV, PDF, or image files.
+3. Search in lexical, semantic, and hybrid modes.
+4. Ask a cited question in Chat and inspect the streamed answer.
+5. Open Runs and review agent state, tool policy, usage, and approvals.
+6. Open MCP, register the built-in harmless test server, enable an exact tool, and invoke it.
+7. Open Skills, create a draft skill, run a deterministic test, publish it, and execute it through the runtime.
+8. Open Observability and review sanitized spans, retrieval diagnostics, feedback, and evaluation status.
+9. Run deterministic evaluation:
+
+```bash
+make eval
+```
+
+## Deployment Profiles
+
+Local:
+
+```bash
+docker compose -f infra/docker/compose.yml up --build -d postgres redis api worker web
+docker compose -f infra/docker/compose.yml --profile observability up -d observability
+docker compose -f infra/docker/compose.yml --profile storage up -d object-store
+docker compose -f infra/docker/compose.yml --profile scan up -d clamav
+```
+
+Local LLM profiles are documented in the local deployment guide. They cover CPU-only mock/demo mode, low-VRAM OpenAI-compatible endpoints, moderate-VRAM vLLM, and the limits reviewers should verify on their own hardware.
+
+Cloud:
+
+- Frontend on Vercel.
+- API and worker on a long-running container platform, not Vercel serverless functions.
+- Neon PostgreSQL with pgvector and pooling constraints documented.
+- Private S3-compatible object storage.
+- Server-side provider keys only.
+- Owner-only auth, strict CORS/trusted hosts, secure cookies, TLS, health checks, backups, rollback, and retention.
+
+Private/hybrid:
+
+- Full stack on a private machine reachable over Tailscale or equivalent private networking.
+- Optional cloud web/API plus local inference only through a tightly controlled private connector. vLLM is never exposed directly to the public internet.
 
 ## Verification
 
-Run the Phase 7 gate:
-
 ```bash
-make format
+corepack pnpm format:check
 make lint
 make typecheck
 make test
 make security
-corepack pnpm build
-corepack pnpm format:check
-corepack pnpm peers check
-docker compose -f infra/docker/compose.yml config
 make eval
+corepack pnpm build
+docker compose -f infra/docker/compose.yml config
+docker compose -f infra/docker/compose.yml build api worker web
 ```
 
-Optional Docling extraction is pinned as an API extra and can be installed for local experiments:
+Additional GitHub workflows cover CodeQL, dependency updates, filesystem/container vulnerability scans, secret/config scanning, SBOM artifacts, and manual release packaging without production deployment.
+
+## Operations
+
+Back up development data:
 
 ```bash
-cd apps/api
-uv sync --extra docling
-LOOMI_EXTRACTION_ENGINE=docling uv run fastapi dev src/loomi_api/main.py
+scripts/backup-postgres.sh
+scripts/backup-objects.sh
+scripts/disaster-recovery-smoke.sh
 ```
+
+Restore and deletion scripts require explicit confirmation environment variables and are intended for local/test environments unless an operator adapts them for a managed platform.
 
 ## Documentation
 
-- [Product requirements](docs/product-requirements.md)
 - [Architecture](docs/architecture.md)
 - [Threat model](docs/threat-model.md)
-- [Implementation plan](docs/implementation-plan.md)
-- [Model providers](docs/model-providers.md)
-- [Agent runtime](docs/agent-runtime.md)
-- [Observability](docs/observability.md)
+- [Local deployment](docs/local-deployment.md)
+- [Cloud deployment](docs/cloud-configuration.md)
+- [Private and hybrid deployment](docs/private-hybrid-deployment.md)
+- [Operations runbook](docs/operations-runbook.md)
+- [Backup and restore](docs/backup-restore.md)
+- [Incident response](docs/incident-response.md)
+- [Demo walkthrough](docs/demo-walkthrough.md)
+- [Evaluation and performance](docs/performance-report.md)
 - [MCP security](docs/mcp-security.md)
 - [Skills](docs/skills.md)
-- [Approval policy](docs/approval-policy.md)
-- [Tool development](docs/tool-development.md)
-- [Evaluation](docs/evaluation.md)
-- [Cloud configuration](docs/cloud-configuration.md)
+- [ADR index](docs/adr-index.md)
 - [Data privacy](docs/data-privacy.md)
-- [Local deployment](docs/local-deployment.md)
-- [Assumptions](docs/assumptions.md)
-- [Architecture decisions](docs/decisions)
+- [Release checklist](docs/release-checklist.md)
 
-## Planned Architecture
+## Screenshots To Capture
 
-```mermaid
-flowchart LR
-  Web[Next.js Web App] --> API[FastAPI API]
-  API --> DB[(PostgreSQL + pgvector)]
-  API --> Worker[Document Worker]
-  Worker --> DB
-  API --> Agent[Agent Runtime]
-  Agent --> Models[Provider-Neutral Model Gateway]
-  Agent --> MCP[MCP Client Boundary]
-  API --> Obs[OpenTelemetry + Langfuse]
-```
+Use synthetic data only:
 
-## Phase Checklist
+- Knowledge Library with one uploaded prompt-injection fixture and one benign project note.
+- Hybrid Search showing lexical/semantic/hybrid comparison.
+- Cited Chat with source chips and validated citations.
+- Agent Run Inspector paused at a harmless approval.
+- MCP Console with the built-in test server and exact enabled tools.
+- Skill Editor showing a deterministic test result.
+- Observability dashboard with sanitized spans and evaluation status.
 
-- [x] Phase 0: Discovery and design.
-- [x] Phase 1: Foundation.
-- [x] Phase 2: Knowledge ingestion.
-- [x] Phase 3: Search and cited chat.
-- [x] Phase 4: Agent runtime.
-- [x] Phase 5: Observability and evaluation.
-- [x] Phase 6: MCP integration.
-- [x] Phase 7: Skills system.
-- [ ] Phase 8: Deployment and hardening.
+## Security Model
 
-See the implementation plan for acceptance criteria and verification commands.
+All document text, retrieved context, model output, MCP metadata, MCP tool output, and skill manifests are untrusted. Provider keys never go to the browser. Tool execution is server-side, allowlisted, approval-gated when risky, and bound to exact canonical arguments. Skills cannot install packages, execute shell/Python/JavaScript, or grant undeclared tools. MCP remote endpoints block private-network egress by default.
 
-## Security Posture
+Residual risks are documented in the threat model and release checklist. The largest remaining items are a production-grade distributed rate limiter, stronger worker job durability, live cloud deployment verification, browser E2E/a11y tests, and managed backup restore rehearsal.
 
-Loomi-Brain treats uploaded content, extracted text, previews, retrieved passages, imported web pages, MCP metadata, MCP responses, tool metadata, tool output, model output, skill manifests, skill templates, skill tests, and imported skill bundles as untrusted data. Provider secrets remain server-side only. Owner authorization is enforced in the API and service layers, not only in the frontend. Uploaded source objects are stored outside static paths and are deleted with their derived chunks and embeddings. Model citations are accepted only when they reference selected stored chunks. Tool execution is server-side, allowlisted per run, intersected with skill and server policy, and approval-gated for risky actions.
+## Contributing
 
-## Demo Data
-
-The project will use synthetic documents only:
-
-- research notes
-- meeting notes
-- project notes
-- a small CSV with formula-like cells
-- a document containing an obvious prompt-injection attempt
-- expected questions and retrieval evidence
+This project is owner-led. Contributions should include tests, update relevant docs, avoid real personal data, and preserve the owner-only security boundary.
 
 ## License
 
-The recommended project license is MIT, with dependency license notices maintained as part of the hardening phase. Some candidate runtime dependencies may use non-MIT licenses and must be documented before release.
+Apache-2.0.

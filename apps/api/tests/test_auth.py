@@ -53,6 +53,19 @@ def test_bad_owner_password_is_rejected(seeded_client: TestClient) -> None:
     assert response.json()["detail"] == "Invalid owner credentials."
 
 
+def test_login_rate_limit_blocks_repeated_failures(seeded_client: TestClient) -> None:
+    response = None
+    for _ in range(9):
+        response = seeded_client.post(
+            "/api/v1/auth/login",
+            json={"email": "limited@example.test", "password": "wrong-password"},
+        )
+
+    assert response is not None
+    assert response.status_code == 429
+    assert response.json()["code"] == "rate_limited"
+
+
 def test_authenticated_document_list_is_owner_scoped(seeded_client: TestClient) -> None:
     _login(seeded_client)
 

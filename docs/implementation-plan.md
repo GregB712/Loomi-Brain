@@ -355,6 +355,12 @@ Implementation notes:
 
 Goal: local, cloud, and private/hybrid profiles are documented, tested, and hardened.
 
+Status: partially implemented as a release candidate. Local hardening, security
+headers, login throttling, backup/export/delete scripts, supply-chain workflows,
+and release documentation are in place. Fresh-clone proof, browser E2E/a11y
+automation, managed cloud verification, and full restore rehearsal remain release
+blockers. See the release checklist for the active gate.
+
 Work items:
 
 1. Local Docker profile.

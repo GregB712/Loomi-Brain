@@ -417,6 +417,36 @@ Residual Phase 7 risks:
   must model that as explicit manifest structure until a future bounded design is
   reviewed.
 
+Phase 8 deployment and hardening controls:
+
+- API and web responses include CSP, frame blocking, referrer, permissions, MIME
+  sniffing, and production HSTS headers.
+- API validates trusted hosts and rejects oversized requests before route
+  handling.
+- Login failures are rate-limited for single-node deployments.
+- Production settings reject default owner credentials, insecure cookies,
+  wildcard CORS/trusted hosts, disabled scanner policy, telemetry content
+  capture, excessive telemetry sampling, and private-network MCP egress.
+- App containers run as non-root users, drop Linux capabilities, use
+  no-new-privileges, and use read-only root filesystems where practical.
+- Compose binds public ports to localhost by default and separates edge/backend
+  networks.
+- Backup, restore verification, owner export, guarded local deletion, and DR
+  smoke scripts are provided.
+- CodeQL, Trivy filesystem/container scans, secret/config scanning, SBOM
+  artifact generation, Dependabot, and manual release packaging workflows are
+  configured.
+
+Residual Phase 8 risks:
+
+- Login throttling is in-memory and must be replaced with shared storage before
+  horizontally scaling API containers.
+- Browser E2E and accessibility suites are still release blockers.
+- Optional service images are configurable for operator pinning; not every
+  optional profile is pinned to a digest by default.
+- Cloud deployment, managed backup restore, and private connector behavior must
+  be verified by the owner before production claims.
+
 ### Observability
 
 - Correlation IDs across web, API, worker, agent, and provider calls.

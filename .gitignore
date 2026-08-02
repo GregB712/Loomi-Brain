@@ -19,6 +19,8 @@ build/
 coverage/
 playwright-report/
 test-results/
+backups/
+exports/
 *.log
 infra/docker/data/
 var/

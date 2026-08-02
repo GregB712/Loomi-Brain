@@ -2,11 +2,12 @@
 
 ## Scope
 
-Phase 6 stores synthetic owner-uploaded documents, extracted text chunks,
+Loomi-Brain stores synthetic owner-uploaded documents, extracted text chunks,
 deterministic fake embeddings, parser metadata, job logs, audit events,
 sanitized telemetry spans, owner feedback metadata, deterministic evaluation
-reports, MCP server registry records, and sanitized MCP capability metadata. Do
-not use real personal documents or credentials for demos.
+reports, MCP server registry records, sanitized MCP capability metadata, skill
+manifests, skill tests, and skill execution metadata. Do not use real personal
+documents or credentials for demos.
 
 ## Storage
 
@@ -18,6 +19,8 @@ not use real personal documents or credentials for demos.
 - MCP server credentials are stored as secret references, not browser-visible
   plaintext values. Capability metadata and tool output are untrusted and
   bounded before persistence/UI display.
+- Skill imports and exports must not contain secrets. Published skill versions
+  are immutable and remain owner-scoped.
 
 ## Logs And Telemetry
 
@@ -45,6 +48,16 @@ Preview text is escaped before returning to the UI. HTML and Markdown from docum
 ## Scanner Behavior
 
 Local/test mode defaults to `LOOMI_SCANNER_MODE=fake-clean`. Production must set `LOOMI_SCANNER_REQUIRED=true` and use a real scanner adapter before accepting remote uploads. If scanner policy requires a scanner and it is unavailable, ingestion fails closed.
+
+## Export, Backup, And Deletion
+
+Owner data export combines the database dump and private object archive. Treat
+exports, backups, and restore artifacts as sensitive owner data.
+
+Development deletion requires explicit confirmation and refuses to run outside
+local/test environments. Production deletion must be adapted to the managed
+database and object-store provider, with backups and audit requirements reviewed
+before use.
 
 ## Limitations
 

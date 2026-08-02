@@ -21,11 +21,28 @@ class Settings(BaseSettings):
     )
     request_id_header: str = "x-request-id"
     trace_id_header: str = "x-trace-id"
+    trusted_hosts: list[str] = Field(
+        default_factory=lambda: ["127.0.0.1", "localhost", "testserver"]
+    )
+    csp_policy: str = (
+        "default-src 'self'; "
+        "base-uri 'none'; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "form-action 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'"
+    )
+    max_request_bytes: int = 20 * 1024 * 1024
 
     owner_email: str = "owner@loomi.local"
     owner_name: str = "Loomi Owner"
     owner_password: SecretStr = SecretStr(DEFAULT_LOCAL_OWNER_PASSWORD)
     password_hash_iterations: int = 390_000
+    auth_login_rate_limit_attempts: int = 8
+    auth_login_rate_limit_window_seconds: int = 300
 
     session_cookie_name: str = "loomi_session"
     csrf_cookie_name: str = "loomi_csrf"
@@ -89,6 +106,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_auth_settings(self) -> Self:
+        if self.max_request_bytes < self.max_upload_bytes:
+            raise ValueError("LOOMI_MAX_REQUEST_BYTES must be >= LOOMI_MAX_UPLOAD_BYTES")
+        if self.session_cookie_samesite == "none" and not self.session_cookie_secure:
+            raise ValueError("SameSite=None cookies require LOOMI_SESSION_COOKIE_SECURE=true")
+        if self.auth_login_rate_limit_attempts < 1:
+            raise ValueError("LOOMI_AUTH_LOGIN_RATE_LIMIT_ATTEMPTS must be >= 1")
+        if self.auth_login_rate_limit_window_seconds < 1:
+            raise ValueError("LOOMI_AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS must be >= 1")
         if self.environment == "production":
             if self.owner_password.get_secret_value() == DEFAULT_LOCAL_OWNER_PASSWORD:
                 raise ValueError("LOOMI_OWNER_PASSWORD must be set in production")
@@ -96,6 +121,8 @@ class Settings(BaseSettings):
                 raise ValueError("LOOMI_SESSION_COOKIE_SECURE must be true in production")
             if "*" in self.cors_origins:
                 raise ValueError("LOOMI_CORS_ORIGINS must not contain '*' in production")
+            if "*" in self.trusted_hosts:
+                raise ValueError("LOOMI_TRUSTED_HOSTS must not contain '*' in production")
             if not self.scanner_required:
                 raise ValueError("LOOMI_SCANNER_REQUIRED must be true in production")
             if self.observability_content_capture != "none":

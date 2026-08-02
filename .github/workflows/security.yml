@@ -1,0 +1,147 @@
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript", "python"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  filesystem-scan:
+    name: Trivy filesystem, secrets, and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Trivy vulnerability/config/secret scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,config
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: "1"
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Generate CycloneDX SBOM
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: loomi-brain-sbom.cdx.json
+          exit-code: "0"
+
+      - name: Upload SBOM artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: loomi-brain-sbom
+          path: loomi-brain-sbom.cdx.json
+          retention-days: 14
+
+  container-scan:
+    name: Container scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build local images
+        run: docker compose -f infra/docker/compose.yml build api worker web
+
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker-api
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-api.sarif
+          exit-code: "1"
+
+      - name: Scan worker image
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker-worker
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-worker.sarif
+          exit-code: "1"
+
+      - name: Scan web image
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker-web
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-web.sarif
+          exit-code: "1"
+
+      - name: Upload container SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: .
+          category: trivy-containers

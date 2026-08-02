@@ -10,7 +10,7 @@ Post-read action: decide whether the repository is ready to tag, or which releas
 - Cloud deployment is reference architecture only until the owner verifies it on real infrastructure.
 - Browser E2E, component, and accessibility tests are not yet implemented as automated suites.
 - Backup restore has local artifact verification scripts, but full restore must be rehearsed against disposable development data before release.
-- Container, CodeQL, SBOM, and Trivy workflows are configured but need a GitHub run before relying on their status.
+- Container, CodeQL, SBOM, and Trivy workflows are configured but need a GitHub run before relying on their status. SARIF is retained as workflow artifacts unless repository code scanning is explicitly enabled.
 
 ## High
 

@@ -37,9 +37,23 @@ jobs:
           build-mode: none
 
       - name: Analyze
+        id: analyze
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
+          output: codeql-results/${{ matrix.language }}
+          upload: never
+          upload-database: false
+          wait-for-processing: false
+
+      - name: Upload CodeQL SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeql-sarif-${{ matrix.language }}
+          path: codeql-results/${{ matrix.language }}
+          if-no-files-found: warn
+          retention-days: 14
 
   filesystem-scan:
     name: Trivy filesystem, secrets, and SBOM
@@ -66,12 +80,14 @@ jobs:
           output: trivy-fs.sarif
           exit-code: "1"
 
-      - name: Upload Trivy SARIF
+      - name: Upload Trivy filesystem SARIF artifact
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v7
         with:
-          sarif_file: trivy-fs.sarif
-          category: trivy-fs
+          name: trivy-filesystem-sarif
+          path: trivy-fs.sarif
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Generate CycloneDX SBOM
         if: always()
@@ -139,9 +155,14 @@ jobs:
           output: trivy-web.sarif
           exit-code: "1"
 
-      - name: Upload container SARIF
+      - name: Upload container SARIF artifacts
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: actions/upload-artifact@v7
         with:
-          sarif_file: .
-          category: trivy-containers
+          name: trivy-container-sarif
+          path: |
+            trivy-api.sarif
+            trivy-worker.sarif
+            trivy-web.sarif
+          if-no-files-found: warn
+          retention-days: 14

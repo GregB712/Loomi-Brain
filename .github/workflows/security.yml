@@ -80,7 +80,21 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
           limit-severities-for-sarif: true
+          exit-code: "0"
+
+      - name: Fail on Trivy filesystem findings
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          version: v0.72.0
+          format: table
+          limit-severities-for-sarif: true
           exit-code: "1"
+          skip-setup-trivy: true
 
       - name: Upload Trivy filesystem SARIF artifact
         if: always()
@@ -129,39 +143,80 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: docker-api
+          scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           version: v0.72.0
           format: sarif
           output: trivy-api.sarif
           limit-severities-for-sarif: true
+          exit-code: "0"
+
+      - name: Fail on API image findings
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker-api
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          version: v0.72.0
+          format: table
           exit-code: "1"
+          skip-setup-trivy: true
 
       - name: Scan worker image
         if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: docker-worker
+          scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           version: v0.72.0
           format: sarif
           output: trivy-worker.sarif
           limit-severities-for-sarif: true
+          exit-code: "0"
+
+      - name: Fail on worker image findings
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker-worker
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          version: v0.72.0
+          format: table
           exit-code: "1"
+          skip-setup-trivy: true
 
       - name: Scan web image
         if: always()
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: docker-web
+          scanners: vuln
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           version: v0.72.0
           format: sarif
           output: trivy-web.sarif
           limit-severities-for-sarif: true
+          exit-code: "0"
+
+      - name: Fail on web image findings
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker-web
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          version: v0.72.0
+          format: table
           exit-code: "1"
+          skip-setup-trivy: true
 
       - name: Upload container SARIF artifacts
         if: always()

@@ -180,9 +180,9 @@ This baseline was checked on 2026-07-28 against primary package sources and loca
 - Phase 4 uses a custom minimal explicit runtime behind an internal `AgentRuntime`
   protocol. PydanticAI 2.19.0 and LangGraph 1.2.9 were reviewed and remain future
   adapter candidates.
-- LiteLLM 1.93.0 behind an internal adapter; ignore pre-release versions.
-- Langfuse 4.14.1 for LLM observability.
-- OpenTelemetry SDK 1.44.0 for traces, metrics, and logs.
+- Provider adapters are implemented directly for the shipped mock/chat/speech paths; LiteLLM remains a future adapter candidate.
+- Langfuse-compatible observability is integrated through optional OTLP-style export configuration rather than a runtime Langfuse SDK dependency.
+- Trace records are stored locally and can be exported through the configured observability exporter; a full OpenTelemetry SDK dependency is not required for the shipped local mode.
 - MCP protocol support based on the latest published specification during Phase 0: stdio and Streamable HTTP, with HTTP+SSE only as backward compatibility.
 
 ## Module Boundaries
@@ -193,11 +193,11 @@ The web app owns UI composition, routing, accessibility, streaming presentation,
 
 ### API
 
-The API owns authentication, owner authorization, request validation, OpenAPI generation, service orchestration, streaming agent execution, approvals, provider configuration, signed upload/download URLs, and audit events.
+The API owns authentication, owner authorization, request validation, OpenAPI generation, service orchestration, background ingestion tasks, streaming agent execution, approvals, provider configuration, local private object keys, and audit events.
 
 ### Worker
 
-The worker owns ingestion jobs, file scanning, media detection, extraction, OCR orchestration, normalization, chunking, embedding, indexing, and job progress events.
+The worker is currently a minimal long-running readiness skeleton. Durable queue claiming, retries, dead-letter handling, and moving ingestion out of the API process are release-hardening work, not shipped behavior.
 
 ### Contracts
 
@@ -442,11 +442,11 @@ External mutation, credential-sensitive, and destructive tools require explicit 
 
 ### Fully Local
 
-Docker Compose runs web, API, worker, PostgreSQL with pgvector, Redis, optional MinIO, optional Langfuse, optional OpenTelemetry collector, optional ClamAV, and optional vLLM. Services bind to localhost by default.
+Docker Compose runs web, API, worker, PostgreSQL with pgvector, Redis, optional MinIO, optional observability collector, optional ClamAV, and optional vLLM. Services bind to localhost by default. Optional MinIO and ClamAV profiles are operator-facing services; the shipped API still uses local filesystem objects and fake/configured scanner modes unless adapted.
 
 ### Cloud
 
-Frontend runs on Vercel. API and worker run on a long-running container platform. PostgreSQL with pgvector runs on a managed service such as Neon. Object storage uses a private S3-compatible bucket. Provider secrets stay in server-side secret storage.
+Frontend runs on Vercel. API runs on a long-running container platform; the worker image is available but remains a readiness skeleton. PostgreSQL with pgvector runs on a managed service such as Neon. Object storage needs either the shipped local filesystem semantics on a private host or a future S3-compatible adapter. Provider secrets stay in server-side secret storage.
 
 ### Private/Hybrid
 

@@ -80,7 +80,7 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
           limit-severities-for-sarif: true
-          exit-code: "0"
+          exit-code: "1"
 
       - name: Upload Trivy filesystem SARIF artifact
         if: always()
@@ -135,7 +135,7 @@ jobs:
           format: sarif
           output: trivy-api.sarif
           limit-severities-for-sarif: true
-          exit-code: "0"
+          exit-code: "1"
 
       - name: Scan worker image
         if: always()
@@ -148,7 +148,7 @@ jobs:
           format: sarif
           output: trivy-worker.sarif
           limit-severities-for-sarif: true
-          exit-code: "0"
+          exit-code: "1"
 
       - name: Scan web image
         if: always()
@@ -161,7 +161,7 @@ jobs:
           format: sarif
           output: trivy-web.sarif
           limit-severities-for-sarif: true
-          exit-code: "0"
+          exit-code: "1"
 
       - name: Upload container SARIF artifacts
         if: always()

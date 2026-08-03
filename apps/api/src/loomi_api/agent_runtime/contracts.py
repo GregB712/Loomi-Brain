@@ -104,10 +104,11 @@ class AgentRunRequest:
     idempotency_key: str | None = None
     provider: str | None = None
     model: str | None = None
-    allowed_tools: tuple[str, ...] = ()
+    allowed_tools: tuple[str, ...] | None = None
     limits: AgentRunLimits = field(default_factory=AgentRunLimits)
     run_kind: str = "agent"
     trace_metadata: dict[str, Any] = field(default_factory=dict)
+    exact_tool_call: PlannedToolCall | None = None
 
 
 @dataclass(frozen=True)

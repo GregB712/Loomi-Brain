@@ -16,11 +16,11 @@ The product is single-user but multi-device. The security model assumes every up
 
 1. Authenticate exactly one owner account and enforce owner access in the API.
 2. Upload, validate, parse, chunk, embed, index, search, preview, re-index, and delete synthetic documents.
-3. Support PDF, DOCX, PPTX, Markdown, plain text, HTML, CSV, common image formats, and safe supported URLs.
+3. Support Markdown, plain text, HTML, CSV, PDF, and common image uploads in the local demo. URL ingestion, DOCX, and PPTX are deferred until the parser and SSRF controls are implemented and tested.
 4. Provide lexical, semantic, and hybrid retrieval over PostgreSQL full-text search and pgvector.
 5. Stream chat responses with precise citations, selected context, model metadata, latency, token usage, approximate cost, warnings, and trace IDs.
 6. Provide a deterministic mock LLM mode for demos and tests.
-7. Wrap model vendors behind provider-neutral interfaces for chat, classification, embeddings, reranking, and vision/OCR.
+7. Wrap configured chat and speech providers behind provider-neutral interfaces; classification, production embeddings, reranking, and vision/OCR providers remain extension points.
 8. Persist agent runs and events with bounded steps, budgets, timeouts, approvals, and cancellation.
 9. Connect to explicitly configured MCP servers through stdio and Streamable HTTP, with tool allowlists, typed arguments, risk classes, and owner approval.
 10. Provide a safe, declarative, versioned skills system without arbitrary code execution.
@@ -123,7 +123,7 @@ The contributor needs clear boundaries for backend services, frontend components
 ### Model Gateway
 
 - Support OpenAI-compatible APIs, OpenAI, Anthropic, Google Gemini, local vLLM, and future providers behind adapters.
-- Separate models for reasoning/chat, fast classification, embeddings, optional reranking, and optional vision/OCR.
+- Separate the shipped chat/speech adapters from extension points for fast classification, production embeddings, optional reranking, and optional vision/OCR.
 - Provide provider health checks, capability metadata, timeouts, bounded retries, rate limits, token accounting, cost estimation, and safe error messages.
 - Keep provider secrets server-side only.
 - Disable fallback providers by default unless the owner explicitly enables them.
@@ -176,7 +176,7 @@ The contributor needs clear boundaries for backend services, frontend components
 - Use a monorepo.
 - Use pnpm workspaces for TypeScript packages.
 - Use uv for Python environments and lockfiles.
-- Use Ruff, strict type checking, pytest, ESLint, Prettier, Playwright, pre-commit hooks, a Makefile, and GitHub Actions.
+- Use Ruff, strict type checking, pytest, ESLint, Prettier, a Makefile, and GitHub Actions. Playwright, component, accessibility, and pre-commit automation are tracked release-hardening gaps.
 - Provide deterministic demo mode with synthetic data and mock model output.
 
 ## Success Metrics

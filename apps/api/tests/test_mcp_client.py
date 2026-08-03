@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import socket
 from typing import Any, cast
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from loomi_api.db.models import MCPCapability
 from loomi_api.db.session import create_engine, create_sessionmaker
+from loomi_api.mcp_client.security import resolve_remote_endpoint
+from loomi_api.mcp_client.transports import _post_json
 
 
 def test_mcp_registry_requires_owner_and_rejects_dangerous_config(
@@ -78,6 +83,107 @@ def test_mcp_capabilities_are_default_deny_then_read_only_tool_runs(
     audit = seeded_client.get("/api/v1/mcp/audit?limit=20")
     assert audit.status_code == 200
     assert any(item["event_type"] == "mcp.tool_executed" for item in audit.json()["items"])
+
+
+def test_mcp_invoke_binds_structured_arguments_even_with_owner_request(
+    seeded_client: TestClient,
+) -> None:
+    csrf = _login(seeded_client)
+    server = _create_test_server(seeded_client, csrf)
+    refreshed = _refresh(seeded_client, csrf, server["id"])
+    echo = _capability(refreshed, "tool", "echo")
+    _policy(
+        seeded_client,
+        csrf,
+        echo["id"],
+        enabled=True,
+        risk_class="read-only",
+        approval_policy="never",
+    )
+
+    response = seeded_client.post(
+        f"/api/v1/mcp/servers/{server['id']}/capabilities/{echo['id']}/invoke",
+        headers={"x-csrf-token": csrf},
+        json={
+            "arguments": {"text": "structured argument"},
+            "owner_request": 'Use MCP tool echo with {"text":"prompt argument"}',
+        },
+    )
+
+    assert response.status_code == 202, response.text
+    body = response.json()
+    assert body["state"] == "complete"
+    assert body["tool_calls"][0]["redacted_arguments"] == {"text": "structured argument"}
+    assert "structured argument" in str(body["tool_calls"][0]["redacted_result"])
+
+
+def test_remote_mcp_transport_uses_resolved_endpoint_without_second_dns(
+    api_settings: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_getaddrinfo(*args: Any, **kwargs: Any) -> list[Any]:
+        return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("8.8.8.8", 443))]
+
+    class FakeResponse:
+        status = 200
+        headers = {"content-type": "application/json"}
+
+        def read(self, limit: int) -> bytes:
+            del limit
+            return json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"ok": True}}).encode()
+
+    class FakeConnection:
+        def __init__(self, host: str, port: int, *, timeout: float) -> None:
+            self.host = host
+            self.port = port
+            self.timeout = timeout
+            self.request_headers: dict[str, str] = {}
+
+        def request(
+            self,
+            method: str,
+            target: str,
+            *,
+            body: bytes,
+            headers: dict[str, str],
+        ) -> None:
+            assert method == "POST"
+            assert target == "/mcp"
+            assert body
+            self.request_headers = headers
+
+        def getresponse(self) -> FakeResponse:
+            return FakeResponse()
+
+        def close(self) -> None:
+            pass
+
+    captured: dict[str, Any] = {}
+
+    def fake_connection(host: str, port: int, *, timeout: float) -> FakeConnection:
+        captured["host"] = host
+        captured["port"] = port
+        return FakeConnection(host, port, timeout=timeout)
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(
+        "loomi_api.mcp_client.transports.http.client.HTTPConnection",
+        fake_connection,
+    )
+    endpoint = resolve_remote_endpoint(api_settings, "http://mcp.example.test/mcp")
+
+    result = _post_json(
+        endpoint,
+        {"content-type": "application/json"},
+        b"{}",
+        cast(
+            Any,
+            type("Server", (), {"connection_timeout_seconds": 5, "output_size_limit": 1000})(),
+        ),
+    )
+
+    assert result == {"ok": True}
+    assert captured == {"host": "8.8.8.8", "port": 80}
 
 
 def test_mcp_risky_tool_requires_approval_and_schema_change_invalidates_it(

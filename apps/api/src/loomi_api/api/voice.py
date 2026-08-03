@@ -264,8 +264,8 @@ async def transcribe(
     request_id = str(getattr(request.state, "request_id", ""))
     trace_id = str(getattr(request.state, "trace_id", ""))
     media_type = _normal_media_type(audio.content_type)
-    audio_bytes = await audio.read()
     try:
+        audio_bytes = await _read_limited_audio(audio, settings.voice_max_audio_bytes)
         result = await transcribe_voice(
             session,
             settings,
@@ -483,6 +483,24 @@ def _session_summary(typed: VoiceSession) -> VoiceSessionSummary:
 
 def _normal_media_type(value: str | None) -> str:
     return (value or "").split(";", 1)[0].strip().casefold()
+
+
+async def _read_limited_audio(upload: UploadFile, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    size = 0
+    try:
+        while chunk := await upload.read(1024 * 1024):
+            size += len(chunk)
+            if size > max_bytes:
+                raise VoiceRequestError(
+                    "audio_too_large",
+                    "Audio exceeds the configured limit.",
+                    413,
+                )
+            chunks.append(chunk)
+    finally:
+        await upload.close()
+    return b"".join(chunks)
 
 
 def _provider_status(exc: VoiceProviderError) -> int:

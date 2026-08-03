@@ -15,7 +15,8 @@ ENV PYTHONPATH="/app/apps/worker/src"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN groupadd --system loomi && useradd --system --gid loomi --home-dir /app --shell /usr/sbin/nologin loomi
+RUN groupadd --system --gid 10001 loomi \
+  && useradd --system --uid 10001 --gid loomi --home-dir /app --shell /usr/sbin/nologin loomi
 
 WORKDIR /app/apps/worker
 

@@ -6,6 +6,8 @@ from typing import Any, cast
 from fastapi.testclient import TestClient
 from httpx2 import Response
 
+_WEBM_BYTES = b"\x1a\x45\xdf\xa3mock webm audio"
+
 
 def test_voice_transcribe_requires_authentication(seeded_client: TestClient) -> None:
     response = seeded_client.post(
@@ -53,6 +55,33 @@ def test_voice_rejects_unsupported_audio_type(seeded_client: TestClient) -> None
     )
 
     assert response.status_code == 415
+
+
+def test_voice_requires_duration_metadata(seeded_client: TestClient) -> None:
+    csrf_token = _login(seeded_client).json()["csrf_token"]
+
+    response = seeded_client.post(
+        "/api/v1/voice/transcribe",
+        headers={"x-csrf-token": csrf_token},
+        files={"audio": ("voice.webm", _WEBM_BYTES, "audio/webm")},
+    )
+
+    assert response.status_code == 422
+    assert "duration" in response.json()["detail"].lower()
+
+
+def test_voice_rejects_mime_mismatch(seeded_client: TestClient) -> None:
+    csrf_token = _login(seeded_client).json()["csrf_token"]
+
+    response = seeded_client.post(
+        "/api/v1/voice/transcribe",
+        headers={"x-csrf-token": csrf_token},
+        files={"audio": ("voice.webm", b"not a webm file", "audio/webm")},
+        data={"duration_ms": "1000"},
+    )
+
+    assert response.status_code == 415
+    assert "MIME" in response.json()["detail"]
 
 
 def test_voice_rejects_oversized_and_overlong_audio(seeded_client: TestClient) -> None:
@@ -170,7 +199,7 @@ def _transcribe(
     csrf_token: str,
     *,
     conversation_id: str | None = None,
-    audio: bytes = b"mock webm audio",
+    audio: bytes = _WEBM_BYTES,
     duration_ms: int = 1000,
 ) -> Response:
     data: dict[str, Any] = {"duration_ms": str(duration_ms)}
@@ -182,6 +211,7 @@ def _transcribe(
         files={"audio": ("voice.webm", audio, "audio/webm")},
         data=data,
     )
+
 
 
 def _create_conversation(client: TestClient, csrf_token: str) -> str:

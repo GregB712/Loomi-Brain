@@ -70,6 +70,10 @@ class _RunWork:
     warnings: list[str] | None = None
 
 
+class _RunTerminated(RuntimeError):
+    pass
+
+
 class AgentRuntimeService:
     def __init__(
         self,
@@ -100,7 +104,9 @@ class AgentRuntimeService:
             owner_request=cast(str, sanitize_value(request.owner_request, string_limit=5000)),
             provider=request.provider or self.settings.chat_provider,
             model=request.model or "loomi-deterministic-agent-runtime-v1",
-            allowed_tools=list(request.allowed_tools or DEFAULT_ALLOWED_TOOLS),
+            allowed_tools=list(
+                DEFAULT_ALLOWED_TOOLS if request.allowed_tools is None else request.allowed_tools
+            ),
             limits=request.limits.as_dict(),
             usage={},
             sanitized_input={
@@ -145,7 +151,10 @@ class AgentRuntimeService:
             return await self.detail(request.owner_user_id, run.id)
 
         work = _RunWork(run=run, request=request, warnings=[])
-        await self._advance_until_pause_or_terminal(work)
+        try:
+            await self._advance_until_pause_or_terminal(work)
+        except _RunTerminated:
+            pass
         return await self.detail(request.owner_user_id, run.id)
 
     async def approve(
@@ -223,7 +232,10 @@ class AgentRuntimeService:
             },
         )
         approval.used_at = utc_now()
-        await self._execute_tool_and_finish(work)
+        try:
+            await self._execute_tool_and_finish(work)
+        except _RunTerminated:
+            pass
         return await self.detail(owner_user_id, run.id)
 
     async def deny(
@@ -734,7 +746,9 @@ class AgentRuntimeService:
         return intent
 
     def _plan_tool(self, work: _RunWork) -> PlannedToolCall | None:
-        mcp_call = _plan_mcp_tool(work.request.owner_request, work.request.allowed_tools)
+        if work.request.exact_tool_call is not None:
+            return work.request.exact_tool_call
+        mcp_call = _plan_mcp_tool(work.request.owner_request, tuple(work.run.allowed_tools or []))
         if mcp_call is not None:
             return mcp_call
         if work.intent == "calculate":
@@ -825,7 +839,7 @@ class AgentRuntimeService:
         step_count = int(metadata.get("step_count", 0))
         if next_state not in {"failed", "cancelled"} and step_count >= limits.max_steps:
             await self._fail(run, "max_steps_exceeded", "State-step budget was exhausted.")
-            return
+            raise _RunTerminated
         previous = run.state
         if next_state not in {"failed", "cancelled"}:
             metadata["step_count"] = step_count + 1
@@ -1123,7 +1137,7 @@ class AgentRuntimeService:
             idempotency_key=idempotency_key or run.idempotency_key,
             provider=run.provider,
             model=run.model,
-            allowed_tools=tuple(run.allowed_tools or DEFAULT_ALLOWED_TOOLS),
+            allowed_tools=tuple(run.allowed_tools or []),
             limits=AgentRunLimits.from_mapping(run.limits),
             run_kind=run.run_kind,
             trace_metadata=run.trace_metadata or {},

@@ -22,5 +22,6 @@ test-results/
 backups/
 exports/
 *.log
+Evaluation.md
 infra/docker/data/
 var/

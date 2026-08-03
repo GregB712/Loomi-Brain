@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import http.client
 import json
 import os
 import signal
+import socket
+import ssl
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from loomi_api.config import Settings
 from loomi_api.db.models import MCPServer
@@ -19,9 +20,10 @@ from loomi_api.mcp_client.protocol import (
     request_payload,
 )
 from loomi_api.mcp_client.security import (
+    ResolvedRemoteEndpoint,
     build_minimal_env,
     resolve_bearer_token,
-    validate_remote_endpoint,
+    resolve_remote_endpoint,
 )
 from loomi_api.mcp_client.templates import resolve_stdio_template
 
@@ -134,9 +136,32 @@ class StdioMCPTransport:
         self.stderr_preview = b"".join(chunks).decode("utf-8", errors="replace")
 
 
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
-        return None
+class PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(
+        self,
+        hostname: str,
+        resolved_address: str,
+        port: int,
+        *,
+        timeout: float,
+    ) -> None:
+        self._ssl_context = ssl.create_default_context()
+        super().__init__(
+            hostname,
+            port=port,
+            timeout=timeout,
+            context=self._ssl_context,
+        )
+        self._resolved_address = resolved_address
+
+    def connect(self) -> None:
+        source_address = getattr(self, "source_address", None)
+        self.sock = socket.create_connection(
+            (self._resolved_address, self.port),
+            self.timeout,
+            source_address,
+        )
+        self.sock = self._ssl_context.wrap_socket(self.sock, server_hostname=self.host)
 
 
 class HttpMCPTransport:
@@ -157,7 +182,7 @@ class HttpMCPTransport:
                 "remote_endpoint_missing", "Remote MCP endpoint is not configured."
             )
         allow_private = bool((self.server.policy or {}).get("allow_private_networks"))
-        endpoint = validate_remote_endpoint(
+        endpoint = resolve_remote_endpoint(
             self.settings,
             self.server.url,
             allow_private_networks=allow_private,
@@ -194,27 +219,39 @@ async def open_transport(settings: Settings, server: MCPServer) -> AsyncIterator
 
 
 def _post_json(
-    endpoint: str,
+    endpoint: ResolvedRemoteEndpoint,
     headers: dict[str, str],
     body: bytes,
     server: MCPServer,
 ) -> dict[str, Any]:
-    opener = build_opener(NoRedirect)
-    request = Request(endpoint, data=body, headers=headers, method="POST")  # noqa: S310
+    timeout = max(server.connection_timeout_seconds or 5, 1)
+    request_headers = {**headers, "host": endpoint.host_header}
+    if endpoint.scheme == "https":
+        connection: http.client.HTTPConnection = PinnedHTTPSConnection(
+            endpoint.hostname,
+            endpoint.address,
+            endpoint.port,
+            timeout=timeout,
+        )
+    else:
+        connection = http.client.HTTPConnection(endpoint.address, endpoint.port, timeout=timeout)
     try:
-        with opener.open(request, timeout=max(server.connection_timeout_seconds or 5, 1)) as resp:
-            content_type = resp.headers.get("content-type", "")
-            payload = resp.read(server.output_size_limit + 1)
-    except HTTPError as exc:
-        if 300 <= exc.code < 400:
-            raise MCPClientError("redirect_blocked", "Remote MCP redirects are blocked.") from exc
-        raise MCPClientError(
-            "remote_mcp_http_error", f"Remote MCP returned HTTP {exc.code}."
-        ) from exc
-    except URLError as exc:
+        connection.request("POST", endpoint.target, body=body, headers=request_headers)
+        response = connection.getresponse()
+        content_type = response.headers.get("content-type", "")
+        payload = response.read(server.output_size_limit + 1)
+        if 300 <= response.status < 400:
+            raise MCPClientError("redirect_blocked", "Remote MCP redirects are blocked.")
+        if response.status >= 400:
+            raise MCPClientError(
+                "remote_mcp_http_error", f"Remote MCP returned HTTP {response.status}."
+            )
+    except OSError as exc:
         raise MCPClientError(
             "remote_mcp_unreachable", "Remote MCP endpoint is unreachable."
         ) from exc
+    finally:
+        connection.close()
     if len(payload) > server.output_size_limit:
         raise MCPClientError("mcp_output_too_large", "Remote MCP response exceeded size limit.")
     if "text/event-stream" in content_type:

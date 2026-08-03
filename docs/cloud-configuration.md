@@ -7,9 +7,9 @@ Post-read action: map Loomi-Brain to managed services without weakening the owne
 ## Reference Architecture
 
 - Frontend: Vercel.
-- API and worker: long-running container platform such as Fly.io, Render, Railway, ECS, Cloud Run jobs/services, or a VM orchestrated by the owner.
+- API: long-running container platform such as Fly.io, Render, Railway, ECS, Cloud Run services, or a VM orchestrated by the owner. The worker image is currently a readiness skeleton until durable queue processing is implemented.
 - Database: Neon PostgreSQL with pgvector.
-- Object storage: private S3-compatible bucket.
+- Object storage: the shipped runtime uses local filesystem storage. A private S3-compatible bucket is a reference architecture target that requires an object-store adapter before use.
 - Observability: managed OTLP/Langfuse-compatible endpoint or self-hosted collector.
 - Models: cloud LLM provider or a secured OpenAI-compatible endpoint.
 

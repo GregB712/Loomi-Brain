@@ -452,8 +452,9 @@ Phase 9 voice controls:
 - Microphone capture starts only after explicit owner action; no always-on listening and
   no wake-word detection are implemented.
 - Voice routes are owner-only and CSRF-protected for mutations.
-- Audio uploads enforce MIME allowlists, max size, max duration metadata, provider
-  timeouts, rate limits, and safe provider-error normalization.
+- Audio uploads enforce MIME allowlists, basic media-signature checks, max size,
+  required max-duration metadata, provider timeouts, rate limits, and safe
+  provider-error normalization.
 - Raw audio is not persisted by default. If retention is enabled, retained audio is
   stored as a private object and can be deleted through the owner-only audio deletion
   endpoint.
@@ -462,13 +463,15 @@ Phase 9 voice controls:
 - Transcripts are owner input, reviewed by default, and submitted through the existing
   cited-chat path. Voice cannot approve tool calls, MCP invocations, skill executions,
   destructive actions, or credential-sensitive operations.
-- TTS reads only visible assistant answer text and rejects secret-like text.
+- Server-side TTS reads only visible assistant answer text and rejects secret-like
+  text. Browser TTS reads visible assistant answer text locally and relies on UI
+  controls rather than the server-side secret-like text guard.
 
 Residual Phase 9 risks:
 
 - Browser microphone permissions and device selection are browser-controlled.
-- Audio duration is enforced from client metadata in this phase; precise server-side
-  media-duration parsing is deferred.
+- Audio duration is required and bounded as client metadata in this phase; precise
+  server-side media-duration parsing is deferred.
 - Realtime speech-to-speech and local wake-word detection are out of scope.
 - Browser E2E must mock microphone and playback APIs unless the environment supports
   real media devices.

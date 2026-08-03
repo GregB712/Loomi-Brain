@@ -70,7 +70,7 @@ async def create_agent_run(
             idempotency_key=idempotency_key,
             provider=payload.provider,
             model=payload.model,
-            allowed_tools=tuple(payload.allowed_tools or DEFAULT_ALLOWED_TOOLS),
+            allowed_tools=tuple(payload.allowed_tools),
             limits=AgentRunLimits.from_mapping(payload.limits.model_dump()),
         )
     )

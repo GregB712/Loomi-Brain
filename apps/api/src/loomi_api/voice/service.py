@@ -680,12 +680,48 @@ def _validate_audio_request(
         raise VoiceRequestError("audio_too_large", "Audio exceeds the configured limit.", 413)
     if not audio_bytes:
         raise VoiceRequestError("empty_audio", "Audio content is required.", 422)
+    if duration_ms is None:
+        raise VoiceRequestError(
+            "audio_duration_required",
+            "Audio duration metadata is required.",
+            422,
+        )
     if duration_ms is not None and duration_ms > config.max_recording_seconds * 1000:
         raise VoiceRequestError(
             "audio_duration_too_long",
             "Audio duration exceeds the configured limit.",
             422,
         )
+    if not _audio_signature_matches(media_type, audio_bytes):
+        raise VoiceRequestError(
+            "audio_mime_mismatch",
+            "Audio content does not match the declared MIME type.",
+            415,
+        )
+
+
+def _audio_signature_matches(media_type: str, audio_bytes: bytes) -> bool:
+    if media_type == "audio/webm":
+        return audio_bytes.startswith(b"\x1a\x45\xdf\xa3")
+    if media_type in {"audio/wav", "audio/x-wav"}:
+        return audio_bytes.startswith(b"RIFF") and audio_bytes[8:12] == b"WAVE"
+    if media_type in {"audio/mpeg", "audio/mp3"}:
+        return audio_bytes.startswith(b"ID3") or (
+            len(audio_bytes) >= 2 and audio_bytes[0] == 0xFF and audio_bytes[1] & 0xE0 == 0xE0
+        )
+    if media_type == "audio/mp4":
+        return len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp"
+    if media_type == "audio/ogg":
+        return audio_bytes.startswith(b"OggS")
+    if media_type == "audio/flac":
+        return audio_bytes.startswith(b"fLaC")
+    if media_type == "audio/aac":
+        return (
+            len(audio_bytes) >= 2
+            and audio_bytes[0] == 0xFF
+            and audio_bytes[1] in {0xF1, 0xF9}
+        )
+    return False
 
 
 def _stt_provider_for(config: VoiceSettings, settings: Settings) -> SpeechToTextProvider:

@@ -214,6 +214,22 @@ def test_limits_and_cancellation_are_enforced(seeded_client: TestClient) -> None
     assert cancelled.json()["state"] == "cancelled"
 
 
+def test_empty_allowed_tools_does_not_fall_back_to_defaults(seeded_client: TestClient) -> None:
+    csrf_token = _login(seeded_client)
+    response = seeded_client.post(
+        "/api/v1/agent-runs",
+        headers={"x-csrf-token": csrf_token, "idempotency-key": "empty-tool-allowlist"},
+        json={"owner_request": "Calculate 1 + 1.", "allowed_tools": []},
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["allowed_tools"] == []
+    assert body["state"] == "failed"
+    assert body["status_reason"] == "tool_not_allowed"
+    assert body["tool_calls"] == []
+
+
 def test_prompt_injection_cannot_request_forbidden_tools(seeded_client: TestClient) -> None:
     csrf_token = _login(seeded_client)
 

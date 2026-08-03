@@ -2,7 +2,7 @@
 
 Owner-only AI second brain for private knowledge ingestion, hybrid retrieval, cited chat, voice conversation, controlled agent runs, MCP integrations, observability, deterministic evaluation, and declarative skills.
 
-Loomi-Brain is built as a portfolio-grade full-stack AI platform: a Next.js web app, FastAPI API, background worker, PostgreSQL with pgvector, private object storage, provider-neutral model gateway, approval-gated tools, and safety-first MCP/skill boundaries. The default demo uses synthetic data and mock model output, so reviewers can run the system without paid provider keys or personal documents.
+Loomi-Brain is built as a portfolio-grade full-stack AI platform: a Next.js web app, FastAPI API, PostgreSQL with pgvector, local private object storage, a worker skeleton for future durable jobs, provider-neutral chat and speech adapters, approval-gated tools, and safety-first MCP/skill boundaries. The default demo uses synthetic data and mock model output, so reviewers can run the system without paid provider keys or personal documents.
 
 ## What It Shows
 
@@ -25,10 +25,10 @@ flowchart LR
   Web --> API[FastAPI API]
   API --> DB[(PostgreSQL + pgvector)]
   API --> Objects[(Private Objects)]
-  API --> Worker[Worker]
-  Worker --> DB
-  Worker --> Objects
-  Worker --> Scan[Scanner]
+  API --> Ingest[API Background Ingestion]
+  Ingest --> DB
+  Ingest --> Objects
+  Ingest --> Scan[Fake/Configured Scanner]
   API --> Agent[Agent Runtime]
   Agent --> Retrieval[Retrieval]
   Retrieval --> DB
@@ -62,17 +62,17 @@ sequenceDiagram
   participant Owner
   participant Web
   participant API
-  participant Worker
+  participant Ingest as API Background Ingestion
   participant Store as Private Objects
   participant DB
   Owner->>Web: Upload synthetic file
   Web->>API: POST upload with CSRF
   API->>Store: Write random object key
   API->>DB: Create document and ingestion job
-  API->>Worker: Queue ingestion
-  Worker->>Store: Read source object
-  Worker->>Worker: Scan, parse, normalize, chunk
-  Worker->>DB: Persist chunks and embeddings
+  API->>Ingest: Schedule ingestion task
+  Ingest->>Store: Read source object
+  Ingest->>Ingest: Scan, parse, normalize, chunk
+  Ingest->>DB: Persist chunks and embeddings
   Web->>API: Search or chat
   API->>DB: Retrieve owner-scoped chunks
   API-->>Web: Stream cited answer events
@@ -136,9 +136,9 @@ Local LLM profiles are documented in the local deployment guide. They cover CPU-
 Cloud:
 
 - Frontend on Vercel.
-- API and worker on a long-running container platform, not Vercel serverless functions.
+- API on a long-running container platform, not Vercel serverless functions; the worker container is currently a readiness skeleton for future durable jobs.
 - Neon PostgreSQL with pgvector and pooling constraints documented.
-- Private S3-compatible object storage.
+- Private object storage. The shipped application uses a local filesystem object store; S3-compatible storage is a cloud-reference adaptation point, not wired into the runtime yet.
 - Server-side provider keys only.
 - Owner-only auth, strict CORS/trusted hosts, secure cookies, TLS, health checks, backups, rollback, and retention.
 
@@ -161,7 +161,7 @@ docker compose -f infra/docker/compose.yml config
 docker compose -f infra/docker/compose.yml build api worker web
 ```
 
-Additional GitHub workflows cover CodeQL, dependency updates, filesystem/container vulnerability scans, secret/config scanning, SBOM artifacts, and manual release packaging without production deployment.
+Additional GitHub workflows cover CodeQL, dependency updates, filesystem/container vulnerability scans, secret/config scanning, SBOM artifacts, and manual release packaging without production deployment. Trivy filesystem and container scans fail on high/critical findings unless a maintainer makes an explicit exception.
 
 ## Operations
 

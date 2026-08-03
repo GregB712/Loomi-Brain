@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from loomi_api.agent_runtime.contracts import AgentRunLimits, AgentRunRequest
+from loomi_api.agent_runtime.contracts import AgentRunLimits, AgentRunRequest, PlannedToolCall
 from loomi_api.agent_runtime.runtime import AgentRuntimeService
 from loomi_api.api.dependencies import (
     CsrfOwnerContext,
@@ -262,6 +262,11 @@ async def invoke_mcp_tool_via_agent(
         f"Use MCP tool {capability.name} with arguments "
         f"{json.dumps(payload.arguments, sort_keys=True)}"
     )
+    exact_tool_call = PlannedToolCall(
+        tool_id=tool_id,
+        arguments=payload.arguments,
+        reason="Owner invoked an explicitly allowlisted MCP capability.",
+    )
     return await AgentRuntimeService(
         session=session, settings=get_settings_from_app(request)
     ).start(
@@ -272,6 +277,7 @@ async def invoke_mcp_tool_via_agent(
             trace_id=str(getattr(request.state, "trace_id", "")),
             idempotency_key=idempotency_key,
             allowed_tools=(tool_id,),
+            exact_tool_call=exact_tool_call,
             limits=AgentRunLimits(
                 max_steps=payload.max_steps, max_tool_calls=payload.max_tool_calls
             ),

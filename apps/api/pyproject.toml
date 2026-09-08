@@ -24,7 +24,7 @@ docling = [
 [dependency-groups]
 dev = [
   "aiosqlite==0.22.1",
-  "httpx2==2.7.0",
+  "httpx2==2.12.0",
   "hypothesis==6.161.6",
   "mypy==2.3.0",
   "pytest==9.1.1",

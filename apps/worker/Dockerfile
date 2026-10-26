@@ -8,7 +8,7 @@ ENV UV_LINK_MODE=copy
 COPY apps/worker/pyproject.toml apps/worker/uv.lock ./
 RUN uv sync --frozen --no-dev
 
-FROM python:3.14-slim-bookworm AS runtime
+FROM python:3.15-slim-bookworm AS runtime
 
 ENV PATH="/app/apps/worker/.venv/bin:${PATH}"
 ENV PYTHONPATH="/app/apps/worker/src"
